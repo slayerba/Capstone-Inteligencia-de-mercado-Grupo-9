@@ -1,0 +1,142 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userExists() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isActive() {
+      return userExists() && userDoc().estado == 'activo';
+    }
+
+    function isSuperadmin() {
+      return isActive() && userDoc().rol == 'superadmin';
+    }
+
+    function isAdmin() {
+      return isActive() && userDoc().rol == 'admin';
+    }
+
+    function belongsToMyEmpresa(empresaId) {
+      return isActive() && userDoc().empresaId == empresaId;
+    }
+
+    function validTenantRole(role) {
+      return role in ['admin', 'gerencia', 'comercial'];
+    }
+
+    match /empresas/{empresaId} {
+      allow read: if isSuperadmin()
+                  || belongsToMyEmpresa(empresaId);
+
+      allow create, update, delete: if isSuperadmin();
+    }
+
+    match /users/{userId} {
+
+      allow read: if isSuperadmin()
+                  || (isSignedIn() && request.auth.uid == userId)
+                  || (isAdmin()
+                      && belongsToMyEmpresa(resource.data.empresaId));
+
+      allow create: if isSuperadmin()
+                    || (isAdmin()
+                        && belongsToMyEmpresa(request.resource.data.empresaId)
+                        && validTenantRole(request.resource.data.rol)
+                        && request.resource.data.id == userId);
+
+      allow update: if isSuperadmin()
+                    || (isAdmin()
+                        && belongsToMyEmpresa(resource.data.empresaId)
+                        && request.resource.data.empresaId
+                           == resource.data.empresaId
+                        && validTenantRole(request.resource.data.rol)
+                        && request.resource.data.id
+                           == resource.data.id);
+
+      allow delete: if isSuperadmin()
+                    || (isAdmin()
+                        && belongsToMyEmpresa(resource.data.empresaId));
+    }
+
+    match /competidores/{competidorId} {
+
+      allow read: if isSuperadmin()
+                  || belongsToMyEmpresa(resource.data.empresaId);
+
+      allow create: if isSuperadmin()
+                    || (isAdmin()
+                        && belongsToMyEmpresa(request.resource.data.empresaId)
+                        && request.resource.data.id == competidorId);
+
+      allow update: if isSuperadmin()
+                    || (isAdmin()
+                        && belongsToMyEmpresa(resource.data.empresaId)
+                        && request.resource.data.empresaId
+                           == resource.data.empresaId
+                        && request.resource.data.id
+                           == resource.data.id);
+
+      allow delete: if isSuperadmin()
+                    || (isAdmin()
+                        && belongsToMyEmpresa(resource.data.empresaId));
+    }
+
+    match /productos/{productoId} {
+
+      function empresaDelCompetidor(competidorId) {
+        return get(
+          /databases/$(database)/documents/competidores/$(competidorId)
+        ).data.empresaId;
+      }
+
+      allow read: if isSuperadmin()
+                  || belongsToMyEmpresa(
+                    empresaDelCompetidor(resource.data.competidorId)
+                  );
+
+      allow create: if isSuperadmin()
+                    || (isAdmin()
+                        && belongsToMyEmpresa(
+                          empresaDelCompetidor(
+                            request.resource.data.competidorId
+                          )
+                        )
+                        && request.resource.data.id == productoId);
+
+      allow update: if isSuperadmin()
+                    || (isAdmin()
+                        && belongsToMyEmpresa(
+                          empresaDelCompetidor(
+                            resource.data.competidorId
+                          )
+                        )
+                        && belongsToMyEmpresa(
+                          empresaDelCompetidor(
+                            request.resource.data.competidorId
+                          )
+                        )
+                        && request.resource.data.id
+                           == resource.data.id);
+
+      allow delete: if isSuperadmin()
+                    || (isAdmin()
+                        && belongsToMyEmpresa(
+                          empresaDelCompetidor(
+                            resource.data.competidorId
+                          )
+                        ));
+    }
+  }
+}
