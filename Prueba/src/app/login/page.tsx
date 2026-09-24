@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
+import { useRouter } from "next/navigation";
 
 type PerfilUsuario = {
   email?: string;
@@ -13,6 +14,7 @@ type PerfilUsuario = {
 };
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mensaje, setMensaje] = useState("");
@@ -57,6 +59,7 @@ export default function LoginPage() {
 
       setPerfil(datos);
       setMensaje("Inicio de sesión correcto.");
+      router.replace("/dashboard");
     } catch (error) {
       console.error(error);
       setMensaje("Correo o contraseña incorrectos.");
