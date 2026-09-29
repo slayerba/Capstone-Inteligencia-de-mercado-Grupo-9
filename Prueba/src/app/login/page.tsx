@@ -72,7 +72,17 @@ export default function LoginPage() {
       router.replace("/dashboard");
     } catch (error) {
       console.error(error);
-      setMensaje("Correo o contraseña incorrectos.");
+      const codigo = (error as { code?: string }).code ?? "";
+      if (codigo === "auth/invalid-credential") {
+        setMensaje("Correo o contraseña incorrectos.");
+      } else if (codigo === "unavailable" || String(error).includes("offline")) {
+        await signOut(auth).catch(() => {});
+        setMensaje(
+          "No hay conexión con la base de datos. Revisa tu red e inténtalo de nuevo."
+        );
+      } else {
+        setMensaje(`No se pudo iniciar sesión (${codigo || "error desconocido"}).`);
+      }
     } finally {
       setCargando(false);
     }
@@ -197,3 +207,4 @@ export default function LoginPage() {
     </main>
   );
 }
+
