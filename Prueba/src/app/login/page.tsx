@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 type PerfilUsuario = {
   email?: string;
   rol?: string;
-  empresaId?: string;
+  empresaId?: string | null;
   estado?: string;
 };
 
@@ -51,9 +51,19 @@ export default function LoginPage() {
         return;
       }
 
-      if (!datos.empresaId || !datos.rol) {
+      if (!datos.rol) {
         await signOut(auth);
-        setMensaje("El perfil no tiene empresa o rol configurado.");
+        setMensaje("El perfil no tiene rol configurado.");
+        return;
+      }
+
+      // El superadmin no pertenece a ninguna empresa (empresaId = null).
+      // Todos los demás roles deben tener una empresa asignada.
+      const esSuperadmin = datos.rol === "superadmin";
+
+      if (!esSuperadmin && !datos.empresaId) {
+        await signOut(auth);
+        setMensaje("El perfil no tiene empresa asignada.");
         return;
       }
 
@@ -179,7 +189,7 @@ export default function LoginPage() {
             }}
           >
             <strong>Usuario autenticado</strong>
-            <p>Empresa: {perfil.empresaId}</p>
+            <p>Empresa: {perfil.empresaId ?? "Todas (superadmin)"}</p>
             <p>Rol: {perfil.rol}</p>
           </div>
         )}
