@@ -1,6 +1,10 @@
-import { getApp, getApps, initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import {
+  initializeFirestore,
+  getFirestore,
+  Firestore,
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -11,9 +15,21 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+// Evita inicializar Firebase más de una vez.
+export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 export const auth = getAuth(app);
-export const db = getFirestore(app);
 
-export default app;
+// Long polling forzado: algunas redes (firewalls/proxies corporativos)
+// cortan la conexión por defecto de Firestore y el SDK queda "offline".
+// Si Firestore ya estaba inicializado, se reutiliza la instancia existente.
+let firestore: Firestore;
+try {
+  firestore = initializeFirestore(app, {
+    experimentalForceLongPolling: true,
+  });
+} catch {
+  firestore = getFirestore(app);
+}
+
+export const db = firestore;

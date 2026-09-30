@@ -15,8 +15,14 @@ import { auth, db } from "@/lib/firebase";
 
 type Perfil = {
   email?: string;
-  empresaId?: string;
+  empresaId?: string | null;
   rol?: string;
+  estado?: string;
+};
+
+type Empresa = {
+  id: string;
+  nombre: string;
   estado?: string;
 };
 
@@ -35,15 +41,62 @@ type Producto = {
   estado?: string;
 };
 
+// Carga competidores y productos de UNA empresa.
+// La usan tanto los usuarios normales (su propia empresa)
+// como el superadmin (la empresa que elija en el selector).
+async function obtenerDatosEmpresa(empresaId: string) {
+  const competidoresQuery = query(
+    collection(db, "competidores"),
+    where("empresaId", "==", empresaId)
+  );
+
+  const competidoresSnap = await getDocs(competidoresQuery);
+
+  const competidores: Competidor[] = competidoresSnap.docs.map(
+    (documento) => ({
+      id: documento.id,
+      nombre: documento.data().nombre ?? documento.id,
+      tipo: documento.data().tipo,
+      estado: documento.data().estado,
+    })
+  );
+
+  const listasProductos = await Promise.all(
+    competidores.map(async (competidor) => {
+      const productosQuery = query(
+        collection(db, "productos"),
+        where("competidorId", "==", competidor.id)
+      );
+
+      const productosSnap = await getDocs(productosQuery);
+
+      return productosSnap.docs.map((documento) => ({
+        id: documento.id,
+        nombre: documento.data().nombre ?? documento.id,
+        categoria: documento.data().categoria,
+        competidorId: documento.data().competidorId,
+        estado: documento.data().estado,
+      })) as Producto[];
+    })
+  );
+
+  return { competidores, productos: listasProductos.flat() };
+}
+
 export default function DashboardPage() {
   const router = useRouter();
 
   const [usuario, setUsuario] = useState<User | null>(null);
   const [perfil, setPerfil] = useState<Perfil | null>(null);
+  const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  const [empresaSeleccionada, setEmpresaSeleccionada] = useState("");
   const [competidores, setCompetidores] = useState<Competidor[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [cargandoDatos, setCargandoDatos] = useState(false);
   const [error, setError] = useState("");
+
+  const esSuperadmin = perfil?.rol === "superadmin";
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -65,11 +118,12 @@ export default function DashboardPage() {
         }
 
         const datosPerfil = userSnap.data() as Perfil;
+        const perfilEsSuperadmin = datosPerfil.rol === "superadmin";
 
         if (
           datosPerfil.estado !== "activo" ||
-          !datosPerfil.empresaId ||
-          !datosPerfil.rol
+          !datosPerfil.rol ||
+          (!perfilEsSuperadmin && !datosPerfil.empresaId)
         ) {
           await signOut(auth);
           router.replace("/login");
@@ -78,43 +132,35 @@ export default function DashboardPage() {
 
         setPerfil(datosPerfil);
 
-        const competidoresQuery = query(
-          collection(db, "competidores"),
-          where("empresaId", "==", datosPerfil.empresaId)
-        );
+        if (perfilEsSuperadmin) {
+          // El superadmin ve todas las empresas de la plataforma
+          // y elige cuál revisar.
+          const empresasSnap = await getDocs(collection(db, "empresas"));
 
-        const competidoresSnap = await getDocs(competidoresQuery);
-
-        const listaCompetidores: Competidor[] =
-          competidoresSnap.docs.map((documento) => ({
-            id: documento.id,
-            nombre: documento.data().nombre ?? documento.id,
-            tipo: documento.data().tipo,
-            estado: documento.data().estado,
-          }));
-
-        setCompetidores(listaCompetidores);
-
-        const listasProductos = await Promise.all(
-          listaCompetidores.map(async (competidor) => {
-            const productosQuery = query(
-              collection(db, "productos"),
-              where("competidorId", "==", competidor.id)
-            );
-
-            const productosSnap = await getDocs(productosQuery);
-
-            return productosSnap.docs.map((documento) => ({
+          const listaEmpresas: Empresa[] = empresasSnap.docs.map(
+            (documento) => ({
               id: documento.id,
               nombre: documento.data().nombre ?? documento.id,
-              categoria: documento.data().categoria,
-              competidorId: documento.data().competidorId,
               estado: documento.data().estado,
-            })) as Producto[];
-          })
-        );
+            })
+          );
 
-        setProductos(listasProductos.flat());
+          setEmpresas(listaEmpresas);
+
+          if (listaEmpresas.length > 0) {
+            const primera = listaEmpresas[0].id;
+            setEmpresaSeleccionada(primera);
+            const datos = await obtenerDatosEmpresa(primera);
+            setCompetidores(datos.competidores);
+            setProductos(datos.productos);
+          }
+        } else {
+          const datos = await obtenerDatosEmpresa(
+            datosPerfil.empresaId as string
+          );
+          setCompetidores(datos.competidores);
+          setProductos(datos.productos);
+        }
       } catch (err) {
         console.error(err);
         setError("No fue posible cargar los datos de la empresa.");
@@ -125,6 +171,25 @@ export default function DashboardPage() {
 
     return () => unsubscribe();
   }, [router]);
+
+  async function cambiarEmpresa(empresaId: string) {
+    setEmpresaSeleccionada(empresaId);
+    setError("");
+    setCargandoDatos(true);
+
+    try {
+      const datos = await obtenerDatosEmpresa(empresaId);
+      setCompetidores(datos.competidores);
+      setProductos(datos.productos);
+    } catch (err) {
+      console.error(err);
+      setCompetidores([]);
+      setProductos([]);
+      setError("No fue posible cargar los datos de esta empresa.");
+    } finally {
+      setCargandoDatos(false);
+    }
+  }
 
   async function cerrarSesion() {
     await signOut(auth);
@@ -138,6 +203,13 @@ export default function DashboardPage() {
       </main>
     );
   }
+
+  const tarjeta = {
+    background: "#fff",
+    padding: "24px",
+    borderRadius: "14px",
+    marginBottom: "24px",
+  };
 
   return (
     <main
@@ -178,44 +250,88 @@ export default function DashboardPage() {
           </button>
         </header>
 
-        <section
-          style={{
-            background: "#fff",
-            padding: "24px",
-            borderRadius: "14px",
-            marginBottom: "24px",
-          }}
-        >
+        <section style={tarjeta}>
           <h2>Sesión activa</h2>
           <p><strong>Usuario:</strong> {usuario?.email}</p>
-          <p><strong>Empresa:</strong> {perfil?.empresaId}</p>
+          <p>
+            <strong>Empresa:</strong>{" "}
+            {esSuperadmin ? "Todas (superadmin)" : perfil?.empresaId}
+          </p>
           <p><strong>Rol:</strong> {perfil?.rol}</p>
         </section>
 
+        {esSuperadmin && (
+          <section style={tarjeta}>
+            <h2>Empresas de la plataforma</h2>
+
+            {empresas.length === 0 ? (
+              <p>No hay empresas registradas.</p>
+            ) : (
+              <>
+                {empresas.map((empresa) => (
+                  <div
+                    key={empresa.id}
+                    style={{
+                      borderTop: "1px solid #eee",
+                      padding: "14px 0",
+                    }}
+                  >
+                    <strong>{empresa.nombre}</strong>
+                    <div>ID: {empresa.id}</div>
+                    <div>Estado: {empresa.estado ?? "Sin definir"}</div>
+                  </div>
+                ))}
+
+                <label
+                  htmlFor="empresa"
+                  style={{
+                    display: "block",
+                    marginTop: "16px",
+                    marginBottom: "6px",
+                  }}
+                >
+                  Ver competidores y productos de:
+                </label>
+                <select
+                  id="empresa"
+                  value={empresaSeleccionada}
+                  onChange={(e) => cambiarEmpresa(e.target.value)}
+                  disabled={cargandoDatos}
+                  style={{
+                    padding: "10px",
+                    borderRadius: "8px",
+                    border: "1px solid #ccc",
+                    minWidth: "240px",
+                  }}
+                >
+                  {empresas.map((empresa) => (
+                    <option key={empresa.id} value={empresa.id}>
+                      {empresa.nombre}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+          </section>
+        )}
+
         {error && (
-          <section
-            style={{
-              background: "#fff3f3",
-              padding: "20px",
-              borderRadius: "14px",
-              marginBottom: "24px",
-            }}
-          >
+          <section style={{ ...tarjeta, background: "#fff3f3" }}>
             {error}
           </section>
         )}
 
-        <section
-          style={{
-            background: "#fff",
-            padding: "24px",
-            borderRadius: "14px",
-            marginBottom: "24px",
-          }}
-        >
-          <h2>Competidores</h2>
+        <section style={tarjeta}>
+          <h2>
+            Competidores
+            {esSuperadmin && empresaSeleccionada
+              ? ` de ${empresaSeleccionada}`
+              : ""}
+          </h2>
 
-          {competidores.length === 0 ? (
+          {cargandoDatos ? (
+            <p>Cargando...</p>
+          ) : competidores.length === 0 ? (
             <p>No existen competidores asociados a esta empresa.</p>
           ) : (
             competidores.map((competidor) => (
@@ -234,16 +350,12 @@ export default function DashboardPage() {
           )}
         </section>
 
-        <section
-          style={{
-            background: "#fff",
-            padding: "24px",
-            borderRadius: "14px",
-          }}
-        >
+        <section style={{ ...tarjeta, marginBottom: 0 }}>
           <h2>Productos</h2>
 
-          {productos.length === 0 ? (
+          {cargandoDatos ? (
+            <p>Cargando...</p>
+          ) : productos.length === 0 ? (
             <p>No existen productos asociados a los competidores de esta empresa.</p>
           ) : (
             productos.map((producto) => (
