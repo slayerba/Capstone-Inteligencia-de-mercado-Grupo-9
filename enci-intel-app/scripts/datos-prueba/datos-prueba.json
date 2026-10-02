@@ -1,0 +1,224 @@
+{
+  "descripcion": "Datos de prueba SINTÉTICOS para Enci-Intel (Firebase enci-intel-test). Nombres, productos y precios son ficticios; no representan empresas ni precios reales.",
+  "version": "1.0",
+  "fecha": "02-10-2026",
+  "competidores": [
+    {
+      "id": "a_comp_01",
+      "empresaId": "empresa_a",
+      "nombre": "Laboratorio Andino Vet",
+      "tipo": "laboratorio",
+      "estado": "activo"
+    },
+    {
+      "id": "a_comp_02",
+      "empresaId": "empresa_a",
+      "nombre": "NutriCampo Chile",
+      "tipo": "fabricante",
+      "estado": "activo"
+    },
+    {
+      "id": "a_comp_03",
+      "empresaId": "empresa_a",
+      "nombre": "BioProtect Sur",
+      "tipo": "distribuidor",
+      "estado": "activo"
+    },
+    {
+      "id": "a_comp_04",
+      "empresaId": "empresa_a",
+      "nombre": "Distribuidora Ñuble Agropecuaria",
+      "tipo": "distribuidor",
+      "estado": "activo"
+    },
+    {
+      "id": "a_comp_05",
+      "empresaId": "empresa_a",
+      "nombre": "VetImport Patagonia",
+      "tipo": "importador",
+      "estado": "inactivo"
+    },
+    {
+      "id": "b_comp_01",
+      "empresaId": "empresa_b",
+      "nombre": "Laboratorio Andino Vet",
+      "tipo": "laboratorio",
+      "estado": "activo"
+    },
+    {
+      "id": "b_comp_02",
+      "empresaId": "empresa_b",
+      "nombre": "AquaSalud Acuícola",
+      "tipo": "laboratorio",
+      "estado": "activo"
+    },
+    {
+      "id": "b_comp_03",
+      "empresaId": "empresa_b",
+      "nombre": "Avícola Insumos del Maule",
+      "tipo": "distribuidor",
+      "estado": "activo"
+    },
+    {
+      "id": "b_comp_04",
+      "empresaId": "empresa_b",
+      "nombre": "Granja Segura SpA",
+      "tipo": "fabricante",
+      "estado": "activo"
+    }
+  ],
+  "productos": [
+    {
+      "id": "a_prod_01",
+      "competidorId": "a_comp_01",
+      "nombre": "Ivermectina 1% inyectable 500 ml",
+      "categoria": "Salud animal",
+      "precio": 18900,
+      "estado": "activo"
+    },
+    {
+      "id": "a_prod_02",
+      "competidorId": "a_comp_01",
+      "nombre": "Oxitetraciclina LA 100 ml",
+      "categoria": "Salud animal",
+      "precio": 12500,
+      "estado": "activo"
+    },
+    {
+      "id": "a_prod_03",
+      "competidorId": "a_comp_01",
+      "nombre": "Vacuna clostridial 8 vías 50 dosis",
+      "categoria": "Salud animal",
+      "precio": 34990,
+      "estado": "activo"
+    },
+    {
+      "id": "a_prod_04",
+      "competidorId": "a_comp_02",
+      "nombre": "Sal mineral bovina 25 kg",
+      "categoria": "Nutrición",
+      "precio": 15990,
+      "estado": "activo"
+    },
+    {
+      "id": "a_prod_05",
+      "competidorId": "a_comp_02",
+      "nombre": "Premezcla porcina crecimiento 20 kg",
+      "categoria": "Nutrición",
+      "precio": 42500,
+      "estado": "activo"
+    },
+    {
+      "id": "a_prod_06",
+      "competidorId": "a_comp_02",
+      "nombre": "Bloque energético ovino 20 kg",
+      "categoria": "Nutrición",
+      "precio": null,
+      "estado": "activo"
+    },
+    {
+      "id": "a_prod_07",
+      "competidorId": "a_comp_03",
+      "nombre": "Desinfectante amonio cuaternario 5 L",
+      "categoria": "Bioseguridad",
+      "precio": 23900,
+      "estado": "activo"
+    },
+    {
+      "id": "a_prod_08",
+      "competidorId": "a_comp_03",
+      "nombre": "Pediluvio sulfato de cobre 25 kg",
+      "categoria": "Bioseguridad",
+      "precio": 29990,
+      "estado": "activo"
+    },
+    {
+      "id": "a_prod_09",
+      "competidorId": "a_comp_03",
+      "nombre": "Rodenticida en bloque 1 kg",
+      "categoria": "Bioseguridad",
+      "precio": 8990,
+      "estado": "inactivo"
+    },
+    {
+      "id": "a_prod_10",
+      "competidorId": "a_comp_04",
+      "nombre": "Antiparasitario pour-on 1 L",
+      "categoria": "Salud animal",
+      "precio": 27500,
+      "estado": "activo"
+    },
+    {
+      "id": "a_prod_11",
+      "competidorId": "a_comp_04",
+      "nombre": "Suplemento vitamínico AD3E 250 ml",
+      "categoria": "Nutrición",
+      "precio": 9990,
+      "estado": "activo"
+    },
+    {
+      "id": "a_prod_12",
+      "competidorId": "a_comp_05",
+      "nombre": "Suero oral para terneros 1 kg",
+      "categoria": "Salud animal",
+      "precio": 11900,
+      "estado": "activo"
+    },
+    {
+      "id": "b_prod_01",
+      "competidorId": "b_comp_01",
+      "nombre": "Ivermectina 1% inyectable 500 ml",
+      "categoria": "Salud animal",
+      "precio": 19500,
+      "estado": "activo"
+    },
+    {
+      "id": "b_prod_02",
+      "competidorId": "b_comp_02",
+      "nombre": "Antiparasitario de baño para salmónidos 1 L",
+      "categoria": "Salud animal",
+      "precio": 89900,
+      "estado": "activo"
+    },
+    {
+      "id": "b_prod_03",
+      "competidorId": "b_comp_02",
+      "nombre": "Vacuna oral para salmónidos 1 kg",
+      "categoria": "Salud animal",
+      "precio": 145000,
+      "estado": "activo"
+    },
+    {
+      "id": "b_prod_04",
+      "competidorId": "b_comp_03",
+      "nombre": "Premezcla vitamínica aves 5 kg",
+      "categoria": "Nutrición",
+      "precio": 21900,
+      "estado": "activo"
+    },
+    {
+      "id": "b_prod_05",
+      "competidorId": "b_comp_03",
+      "nombre": "Desinfectante de galpones 20 L",
+      "categoria": "Bioseguridad",
+      "precio": 54900,
+      "estado": "activo"
+    },
+    {
+      "id": "b_prod_06",
+      "competidorId": "b_comp_04",
+      "nombre": "Solución para arco sanitario 10 L",
+      "categoria": "Bioseguridad",
+      "precio": 31900,
+      "estado": "activo"
+    },
+    {
+      "id": "b_prod_07",
+      "competidorId": "b_comp_04",
+      "nombre": "Cal viva agrícola 25 kg",
+      "categoria": "Bioseguridad",
+      "precio": 7990,
+      "estado": "activo"
+    }
+  ]
+}
