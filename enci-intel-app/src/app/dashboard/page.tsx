@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import {
   collection,
@@ -8,6 +8,8 @@ import {
   getDoc,
   getDocs,
   query,
+  serverTimestamp,
+  setDoc,
   where,
 } from "firebase/firestore";
 import { useRouter } from "next/navigation";
@@ -96,7 +98,14 @@ export default function DashboardPage() {
   const [cargandoDatos, setCargandoDatos] = useState(false);
   const [error, setError] = useState("");
 
+  const [nombreCompetidor, setNombreCompetidor] = useState("");
+  const [tipoCompetidor, setTipoCompetidor] = useState("empresa");
+  const [guardandoCompetidor, setGuardandoCompetidor] = useState(false);
+  const [mensajeCompetidor, setMensajeCompetidor] = useState("");
+
   const esSuperadmin = perfil?.rol === "superadmin";
+  const puedeGestionarCompetidores =
+    perfil?.rol === "admin" || esSuperadmin;
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -188,6 +197,64 @@ export default function DashboardPage() {
       setError("No fue posible cargar los datos de esta empresa.");
     } finally {
       setCargandoDatos(false);
+    }
+  }
+
+  async function crearCompetidor(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+
+    setMensajeCompetidor("");
+    setError("");
+
+    if (!puedeGestionarCompetidores) {
+      setError("Tu rol no tiene permiso para crear competidores.");
+      return;
+    }
+
+    const empresaDestino = esSuperadmin
+      ? empresaSeleccionada
+      : perfil?.empresaId ?? "";
+
+    if (!empresaDestino) {
+      setError("No hay una empresa seleccionada para crear el competidor.");
+      return;
+    }
+
+    const nombre = nombreCompetidor.trim();
+    const tipo = tipoCompetidor.trim() || "empresa";
+
+    if (!nombre) {
+      setError("Debes ingresar el nombre del competidor.");
+      return;
+    }
+
+    setGuardandoCompetidor(true);
+
+    try {
+      const competidorRef = doc(collection(db, "competidores"));
+
+      await setDoc(competidorRef, {
+        id: competidorRef.id,
+        nombre,
+        tipo,
+        empresaId: empresaDestino,
+        estado: "activo",
+        creado_en: serverTimestamp(),
+      });
+
+      const datosActualizados = await obtenerDatosEmpresa(empresaDestino);
+
+      setCompetidores(datosActualizados.competidores);
+      setProductos(datosActualizados.productos);
+
+      setNombreCompetidor("");
+      setTipoCompetidor("empresa");
+      setMensajeCompetidor("Competidor agregado correctamente.");
+    } catch (err) {
+      console.error(err);
+      setError("No fue posible crear el competidor.");
+    } finally {
+      setGuardandoCompetidor(false);
     }
   }
 
@@ -328,6 +395,97 @@ export default function DashboardPage() {
               ? ` de ${empresaSeleccionada}`
               : ""}
           </h2>
+
+          {puedeGestionarCompetidores && (
+            <form
+              onSubmit={crearCompetidor}
+              style={{
+                padding: "18px",
+                marginBottom: "22px",
+                border: "1px solid #e5e5e5",
+                borderRadius: "10px",
+                background: "#fafafa",
+              }}
+            >
+              <h3 style={{ marginTop: 0 }}>Agregar competidor</h3>
+
+              <p style={{ color: "#666" }}>
+                Empresa destino:{" "}
+                <strong>
+                  {esSuperadmin ? empresaSeleccionada : perfil?.empresaId}
+                </strong>
+              </p>
+
+              <label
+                htmlFor="nombreCompetidor"
+                style={{ display: "block", marginBottom: "6px" }}
+              >
+                Nombre
+              </label>
+
+              <input
+                id="nombreCompetidor"
+                value={nombreCompetidor}
+                onChange={(e) => setNombreCompetidor(e.target.value)}
+                placeholder="Ej: Competidor XYZ"
+                disabled={guardandoCompetidor}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  marginBottom: "14px",
+                  border: "1px solid #ccc",
+                  borderRadius: "8px",
+                  boxSizing: "border-box",
+                }}
+              />
+
+              <label
+                htmlFor="tipoCompetidor"
+                style={{ display: "block", marginBottom: "6px" }}
+              >
+                Tipo
+              </label>
+
+              <input
+                id="tipoCompetidor"
+                value={tipoCompetidor}
+                onChange={(e) => setTipoCompetidor(e.target.value)}
+                disabled={guardandoCompetidor}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  marginBottom: "14px",
+                  border: "1px solid #ccc",
+                  borderRadius: "8px",
+                  boxSizing: "border-box",
+                }}
+              />
+
+              <button
+                type="submit"
+                disabled={guardandoCompetidor}
+                style={{
+                  padding: "10px 18px",
+                  border: "none",
+                  borderRadius: "8px",
+                  background: "#111",
+                  color: "#fff",
+                  cursor: guardandoCompetidor ? "wait" : "pointer",
+                  fontWeight: 600,
+                }}
+              >
+                {guardandoCompetidor
+                  ? "Guardando..."
+                  : "Agregar competidor"}
+              </button>
+
+              {mensajeCompetidor && (
+                <p style={{ marginBottom: 0, color: "#176b35" }}>
+                  {mensajeCompetidor}
+                </p>
+              )}
+            </form>
+          )}
 
           {cargandoDatos ? (
             <p>Cargando...</p>
