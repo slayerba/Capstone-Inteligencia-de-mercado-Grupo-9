@@ -40,6 +40,7 @@ type Producto = {
   nombre: string;
   categoria?: string;
   competidorId: string;
+  precio?: number | null;
   estado?: string;
 };
 
@@ -77,6 +78,7 @@ async function obtenerDatosEmpresa(empresaId: string) {
         nombre: documento.data().nombre ?? documento.id,
         categoria: documento.data().categoria,
         competidorId: documento.data().competidorId,
+        precio: documento.data().precio ?? null,
         estado: documento.data().estado,
       })) as Producto[];
     })
@@ -103,8 +105,17 @@ export default function DashboardPage() {
   const [guardandoCompetidor, setGuardandoCompetidor] = useState(false);
   const [mensajeCompetidor, setMensajeCompetidor] = useState("");
 
+  const [nombreProducto, setNombreProducto] = useState("");
+  const [categoriaProducto, setCategoriaProducto] = useState("");
+  const [precioProducto, setPrecioProducto] = useState("");
+  const [competidorProducto, setCompetidorProducto] = useState("");
+  const [guardandoProducto, setGuardandoProducto] = useState(false);
+  const [mensajeProducto, setMensajeProducto] = useState("");
+
   const esSuperadmin = perfil?.rol === "superadmin";
   const puedeGestionarCompetidores =
+    perfil?.rol === "admin" || esSuperadmin;
+  const puedeGestionarProductos =
     perfil?.rol === "admin" || esSuperadmin;
 
   useEffect(() => {
@@ -183,6 +194,8 @@ export default function DashboardPage() {
 
   async function cambiarEmpresa(empresaId: string) {
     setEmpresaSeleccionada(empresaId);
+    setCompetidorProducto("");
+    setMensajeProducto("");
     setError("");
     setCargandoDatos(true);
 
@@ -255,6 +268,109 @@ export default function DashboardPage() {
       setError("No fue posible crear el competidor.");
     } finally {
       setGuardandoCompetidor(false);
+    }
+  }
+
+  async function crearProducto(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+
+    setMensajeProducto("");
+    setError("");
+
+    if (!puedeGestionarProductos) {
+      setError("Tu rol no tiene permiso para crear productos.");
+      return;
+    }
+
+    const nombre = nombreProducto.trim();
+    const categoria = categoriaProducto.trim();
+    const competidorId = competidorProducto;
+
+    if (!nombre) {
+      setError("Debes ingresar el nombre del producto.");
+      return;
+    }
+
+    if (!categoria) {
+      setError("Debes ingresar la categoría del producto.");
+      return;
+    }
+
+    if (!competidorId) {
+      setError("Debes seleccionar un competidor.");
+      return;
+    }
+
+    const competidorValido = competidores.some(
+      (competidor) => competidor.id === competidorId
+    );
+
+    if (!competidorValido) {
+      setError("El competidor seleccionado no pertenece a la empresa actual.");
+      return;
+    }
+
+    let precio: number | null = null;
+
+    if (precioProducto.trim() !== "") {
+      precio = Number(precioProducto);
+
+      if (!Number.isFinite(precio) || precio < 0) {
+        setError("El precio debe ser un número válido mayor o igual a 0.");
+        return;
+      }
+    }
+
+    const empresaDestino = esSuperadmin
+      ? empresaSeleccionada
+      : perfil?.empresaId ?? "";
+
+    if (!empresaDestino) {
+      setError("No hay una empresa seleccionada para crear el producto.");
+      return;
+    }
+
+    setGuardandoProducto(true);
+
+    try {
+      const competidorRef = doc(db, "competidores", competidorId);
+      const competidorSnap = await getDoc(competidorRef);
+
+      if (
+        !competidorSnap.exists() ||
+        competidorSnap.data().empresaId !== empresaDestino
+      ) {
+        setError("El competidor no pertenece a la empresa seleccionada.");
+        return;
+      }
+
+      const productoRef = doc(collection(db, "productos"));
+
+      await setDoc(productoRef, {
+        id: productoRef.id,
+        nombre,
+        categoria,
+        precio,
+        competidorId,
+        estado: "activo",
+        creado_en: serverTimestamp(),
+      });
+
+      const datosActualizados = await obtenerDatosEmpresa(empresaDestino);
+
+      setCompetidores(datosActualizados.competidores);
+      setProductos(datosActualizados.productos);
+
+      setNombreProducto("");
+      setCategoriaProducto("");
+      setPrecioProducto("");
+      setCompetidorProducto("");
+      setMensajeProducto("Producto agregado correctamente.");
+    } catch (err) {
+      console.error(err);
+      setError("No fue posible crear el producto.");
+    } finally {
+      setGuardandoProducto(false);
     }
   }
 
@@ -511,6 +627,163 @@ export default function DashboardPage() {
         <section style={{ ...tarjeta, marginBottom: 0 }}>
           <h2>Productos</h2>
 
+          {puedeGestionarProductos && (
+            <form
+              onSubmit={crearProducto}
+              style={{
+                padding: "18px",
+                marginBottom: "22px",
+                border: "1px solid #e5e5e5",
+                borderRadius: "10px",
+                background: "#fafafa",
+              }}
+            >
+              <h3 style={{ marginTop: 0 }}>Agregar producto</h3>
+
+              <p style={{ color: "#666" }}>
+                Empresa destino:{" "}
+                <strong>
+                  {esSuperadmin ? empresaSeleccionada : perfil?.empresaId}
+                </strong>
+              </p>
+
+              <label
+                htmlFor="nombreProducto"
+                style={{ display: "block", marginBottom: "6px" }}
+              >
+                Nombre
+              </label>
+
+              <input
+                id="nombreProducto"
+                value={nombreProducto}
+                onChange={(e) => setNombreProducto(e.target.value)}
+                placeholder="Ej: Producto veterinario"
+                disabled={guardandoProducto}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  marginBottom: "14px",
+                  border: "1px solid #ccc",
+                  borderRadius: "8px",
+                  boxSizing: "border-box",
+                }}
+              />
+
+              <label
+                htmlFor="categoriaProducto"
+                style={{ display: "block", marginBottom: "6px" }}
+              >
+                Categoría
+              </label>
+
+              <input
+                id="categoriaProducto"
+                value={categoriaProducto}
+                onChange={(e) => setCategoriaProducto(e.target.value)}
+                placeholder="Ej: Antiparasitario"
+                disabled={guardandoProducto}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  marginBottom: "14px",
+                  border: "1px solid #ccc",
+                  borderRadius: "8px",
+                  boxSizing: "border-box",
+                }}
+              />
+
+              <label
+                htmlFor="precioProducto"
+                style={{ display: "block", marginBottom: "6px" }}
+              >
+                Precio CLP (opcional)
+              </label>
+
+              <input
+                id="precioProducto"
+                type="number"
+                min="0"
+                step="1"
+                value={precioProducto}
+                onChange={(e) => setPrecioProducto(e.target.value)}
+                placeholder="Ej: 19990"
+                disabled={guardandoProducto}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  marginBottom: "14px",
+                  border: "1px solid #ccc",
+                  borderRadius: "8px",
+                  boxSizing: "border-box",
+                }}
+              />
+
+              <label
+                htmlFor="competidorProducto"
+                style={{ display: "block", marginBottom: "6px" }}
+              >
+                Competidor
+              </label>
+
+              <select
+                id="competidorProducto"
+                value={competidorProducto}
+                onChange={(e) => setCompetidorProducto(e.target.value)}
+                disabled={guardandoProducto || competidores.length === 0}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  marginBottom: "14px",
+                  border: "1px solid #ccc",
+                  borderRadius: "8px",
+                  boxSizing: "border-box",
+                }}
+              >
+                <option value="">Seleccionar competidor</option>
+
+                {competidores.map((competidor) => (
+                  <option key={competidor.id} value={competidor.id}>
+                    {competidor.nombre}
+                  </option>
+                ))}
+              </select>
+
+              {competidores.length === 0 && (
+                <p style={{ color: "#666" }}>
+                  Primero debes registrar un competidor para esta empresa.
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={guardandoProducto || competidores.length === 0}
+                style={{
+                  padding: "10px 18px",
+                  border: "none",
+                  borderRadius: "8px",
+                  background: "#111",
+                  color: "#fff",
+                  cursor:
+                    guardandoProducto || competidores.length === 0
+                      ? "not-allowed"
+                      : "pointer",
+                  fontWeight: 600,
+                }}
+              >
+                {guardandoProducto
+                  ? "Guardando..."
+                  : "Agregar producto"}
+              </button>
+
+              {mensajeProducto && (
+                <p style={{ marginBottom: 0, color: "#176b35" }}>
+                  {mensajeProducto}
+                </p>
+              )}
+            </form>
+          )}
+
           {cargandoDatos ? (
             <p>Cargando...</p>
           ) : productos.length === 0 ? (
@@ -526,7 +799,19 @@ export default function DashboardPage() {
               >
                 <strong>{producto.nombre}</strong>
                 <div>Categoría: {producto.categoria ?? "Sin definir"}</div>
-                <div>Competidor: {producto.competidorId}</div>
+                <div>
+                  Precio:{" "}
+                  {producto.precio === null || producto.precio === undefined
+                    ? "Sin precio"
+                    : `$${producto.precio.toLocaleString("es-CL")}`}
+                </div>
+                <div>
+                  Competidor:{" "}
+                  {competidores.find(
+                    (competidor) => competidor.id === producto.competidorId
+                  )?.nombre ?? producto.competidorId}
+                </div>
+                <div>Estado: {producto.estado ?? "Sin definir"}</div>
               </div>
             ))
           )}
