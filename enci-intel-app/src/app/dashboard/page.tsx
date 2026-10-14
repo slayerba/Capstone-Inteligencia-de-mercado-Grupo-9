@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import {
   collection,
@@ -11,6 +11,7 @@ import {
   serverTimestamp,
   setDoc,
   where,
+  writeBatch,
 } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
@@ -43,6 +44,149 @@ type Producto = {
   precio?: number | null;
   estado?: string;
 };
+
+type ProductoCsv = {
+  nombre: string;
+  categoria: string;
+  precio: number | null;
+  competidorId: string;
+  estado: "activo" | "inactivo";
+};
+
+function separarLineaCsv(linea: string, delimitador: string) {
+  const valores: string[] = [];
+  let actual = "";
+  let entreComillas = false;
+
+  for (let i = 0; i < linea.length; i += 1) {
+    const caracter = linea[i];
+
+    if (caracter === '"') {
+      if (entreComillas && linea[i + 1] === '"') {
+        actual += '"';
+        i += 1;
+      } else {
+        entreComillas = !entreComillas;
+      }
+    } else if (caracter === delimitador && !entreComillas) {
+      valores.push(actual.trim());
+      actual = "";
+    } else {
+      actual += caracter;
+    }
+  }
+
+  valores.push(actual.trim());
+
+  return valores;
+}
+
+function parsearProductosCsv(texto: string): ProductoCsv[] {
+  const lineas = texto
+    .replace(/\r/g, "")
+    .split("\n")
+    .filter((linea) => linea.trim() !== "");
+
+  if (lineas.length < 2) {
+    throw new Error(
+      "El CSV debe contener una cabecera y al menos un producto."
+    );
+  }
+
+  const primeraLinea = lineas[0].replace(/^\uFEFF/, "");
+
+  const delimitador =
+    primeraLinea.includes(";") && !primeraLinea.includes(",")
+      ? ";"
+      : ",";
+
+  const cabeceras = separarLineaCsv(
+    primeraLinea,
+    delimitador
+  ).map((cabecera) => cabecera.trim().toLowerCase());
+
+  const esperadas = [
+    "nombre",
+    "categoria",
+    "precio",
+    "competidorid",
+    "estado",
+  ];
+
+  const faltantes = esperadas.filter(
+    (cabecera) => !cabeceras.includes(cabecera)
+  );
+
+  if (faltantes.length > 0) {
+    throw new Error(
+      `Faltan columnas obligatorias: ${faltantes.join(", ")}.`
+    );
+  }
+
+  const indice = (nombre: string) => cabeceras.indexOf(nombre);
+
+  return lineas.slice(1).map((linea, posicion) => {
+    const columnas = separarLineaCsv(linea, delimitador);
+
+    const nombre = columnas[indice("nombre")]?.trim() ?? "";
+    const categoria = columnas[indice("categoria")]?.trim() ?? "";
+    const precioTexto = columnas[indice("precio")]?.trim() ?? "";
+    const competidorId =
+      columnas[indice("competidorid")]?.trim() ?? "";
+    const estadoTexto =
+      columnas[indice("estado")]?.trim().toLowerCase() ?? "";
+
+    if (!nombre) {
+      throw new Error(
+        `Fila ${posicion + 2}: el nombre está vacío.`
+      );
+    }
+
+    if (!categoria) {
+      throw new Error(
+        `Fila ${posicion + 2}: la categoría está vacía.`
+      );
+    }
+
+    if (!competidorId) {
+      throw new Error(
+        `Fila ${posicion + 2}: competidorId está vacío.`
+      );
+    }
+
+    let precio: number | null = null;
+
+    if (
+      precioTexto !== "" &&
+      precioTexto.toLowerCase() !== "null"
+    ) {
+      precio = Number(precioTexto);
+
+      if (!Number.isFinite(precio) || precio < 0) {
+        throw new Error(
+          `Fila ${posicion + 2}: el precio no es válido.`
+        );
+      }
+    }
+
+    if (
+      estadoTexto !== "activo" &&
+      estadoTexto !== "inactivo"
+    ) {
+      throw new Error(
+        `Fila ${posicion + 2}: estado debe ser activo o inactivo.`
+      );
+    }
+
+    return {
+      nombre,
+      categoria,
+      precio,
+      competidorId,
+      estado: estadoTexto as "activo" | "inactivo",
+    };
+  });
+}
 
 // Carga competidores y productos de UNA empresa.
 // La usan tanto los usuarios normales (su propia empresa)
@@ -111,6 +255,9 @@ export default function DashboardPage() {
   const [competidorProducto, setCompetidorProducto] = useState("");
   const [guardandoProducto, setGuardandoProducto] = useState(false);
   const [mensajeProducto, setMensajeProducto] = useState("");
+
+  const [importandoCsv, setImportandoCsv] = useState(false);
+  const [mensajeCsv, setMensajeCsv] = useState("");
 
   const esSuperadmin = perfil?.rol === "superadmin";
   const puedeGestionarCompetidores =
@@ -196,6 +343,7 @@ export default function DashboardPage() {
     setEmpresaSeleccionada(empresaId);
     setCompetidorProducto("");
     setMensajeProducto("");
+    setMensajeCsv("");
     setError("");
     setCargandoDatos(true);
 
@@ -371,6 +519,132 @@ export default function DashboardPage() {
       setError("No fue posible crear el producto.");
     } finally {
       setGuardandoProducto(false);
+    }
+  }
+
+  async function importarProductosCsv(
+    evento: ChangeEvent<HTMLInputElement>
+  ) {
+    const archivo = evento.target.files?.[0];
+
+    if (!archivo) {
+      return;
+    }
+
+    setError("");
+    setMensajeCsv("");
+
+    if (!puedeGestionarProductos) {
+      setError("Tu rol no tiene permiso para importar productos.");
+      evento.target.value = "";
+      return;
+    }
+
+    if (!archivo.name.toLowerCase().endsWith(".csv")) {
+      setError("Debes seleccionar un archivo con extensión .csv.");
+      evento.target.value = "";
+      return;
+    }
+
+    const empresaDestino = esSuperadmin
+      ? empresaSeleccionada
+      : perfil?.empresaId ?? "";
+
+    if (!empresaDestino) {
+      setError(
+        "No hay una empresa seleccionada para realizar la importación."
+      );
+      evento.target.value = "";
+      return;
+    }
+
+    setImportandoCsv(true);
+
+    try {
+      const texto = await archivo.text();
+      const filas = parsearProductosCsv(texto);
+
+      if (filas.length > 450) {
+        throw new Error(
+          "El MVP admite un máximo de 450 productos por archivo CSV."
+        );
+      }
+
+      const competidoresPermitidos = new Set(
+        competidores.map((competidor) => competidor.id)
+      );
+
+      const competidoresCsv = [
+        ...new Set(filas.map((fila) => fila.competidorId)),
+      ];
+
+      for (const competidorId of competidoresCsv) {
+        if (!competidoresPermitidos.has(competidorId)) {
+          throw new Error(
+            `El competidor ${competidorId} no pertenece a la empresa actual.`
+          );
+        }
+
+        const competidorRef = doc(
+          db,
+          "competidores",
+          competidorId
+        );
+
+        const competidorSnap = await getDoc(competidorRef);
+
+        if (
+          !competidorSnap.exists() ||
+          competidorSnap.data().empresaId !== empresaDestino
+        ) {
+          throw new Error(
+            `El competidor ${competidorId} no pertenece al tenant seleccionado.`
+          );
+        }
+      }
+
+      // Todas las filas se validan ANTES de escribir.
+      // Se usa un único batch para que la carga del MVP sea atómica.
+      const batch = writeBatch(db);
+
+      filas.forEach((fila) => {
+        const productoRef = doc(collection(db, "productos"));
+
+        batch.set(productoRef, {
+          id: productoRef.id,
+          nombre: fila.nombre,
+          categoria: fila.categoria,
+          precio: fila.precio,
+          competidorId: fila.competidorId,
+          estado: fila.estado,
+          creado_en: serverTimestamp(),
+        });
+      });
+
+      await batch.commit();
+
+      const datosActualizados =
+        await obtenerDatosEmpresa(empresaDestino);
+
+      setCompetidores(datosActualizados.competidores);
+      setProductos(datosActualizados.productos);
+
+      setMensajeCsv(
+        `Carga batch completada: ${filas.length} producto${
+          filas.length === 1 ? "" : "s"
+        } importado${filas.length === 1 ? "" : "s"} correctamente.`
+      );
+    } catch (err) {
+      console.error(err);
+
+      setError(
+        err instanceof Error
+          ? `No se pudo importar el CSV: ${err.message}`
+          : "No se pudo importar el archivo CSV."
+      );
+    } finally {
+      setImportandoCsv(false);
+      evento.target.value = "";
     }
   }
 
@@ -626,6 +900,80 @@ export default function DashboardPage() {
 
         <section style={{ ...tarjeta, marginBottom: 0 }}>
           <h2>Productos</h2>
+
+          {puedeGestionarProductos && (
+            <div
+              style={{
+                padding: "18px",
+                marginBottom: "22px",
+                border: "1px solid #d8e2ec",
+                borderRadius: "10px",
+                background: "#f7fbff",
+              }}
+            >
+              <h3 style={{ marginTop: 0 }}>
+                Importar productos por CSV
+              </h3>
+
+              <p style={{ color: "#666", lineHeight: 1.5 }}>
+                Carga masiva mediante Firestore Batch. El archivo se
+                valida completamente antes de escribir y solo puede
+                utilizar competidores de la empresa actual.
+              </p>
+
+              <p style={{ color: "#666", lineHeight: 1.5 }}>
+                Columnas requeridas:
+                <br />
+                <code>
+                  nombre,categoria,precio,competidorId,estado
+                </code>
+              </p>
+
+              <p style={{ color: "#666" }}>
+                Máximo: 450 productos por archivo.
+              </p>
+
+              <a
+                href="/ejemplos/productos-batch.csv"
+                download
+                style={{
+                  display: "inline-block",
+                  marginBottom: "14px",
+                }}
+              >
+                Descargar CSV sintético de ejemplo
+              </a>
+
+              <div>
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={importarProductosCsv}
+                  disabled={
+                    importandoCsv || competidores.length === 0
+                  }
+                />
+              </div>
+
+              {importandoCsv && (
+                <p style={{ color: "#666" }}>
+                  Validando y cargando productos...
+                </p>
+              )}
+
+              {mensajeCsv && (
+                <p
+                  style={{
+                    marginBottom: 0,
+                    color: "#176b35",
+                    fontWeight: 600,
+                  }}
+                >
+                  {mensajeCsv}
+                </p>
+              )}
+            </div>
+          )}
 
           {puedeGestionarProductos && (
             <form
