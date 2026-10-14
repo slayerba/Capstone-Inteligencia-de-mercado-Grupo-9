@@ -125,6 +125,18 @@ export default function DashboardPage() {
   const [importandoCsv, setImportandoCsv] = useState(false);
   const [mensajeCsv, setMensajeCsv] = useState("");
 
+  const [editandoCompetidorId, setEditandoCompetidorId] = useState("");
+  const [nombreCompetidorEdicion, setNombreCompetidorEdicion] = useState("");
+  const [tipoCompetidorEdicion, setTipoCompetidorEdicion] = useState("");
+  const [accionCompetidorId, setAccionCompetidorId] = useState("");
+
+  const [editandoProductoId, setEditandoProductoId] = useState("");
+  const [nombreProductoEdicion, setNombreProductoEdicion] = useState("");
+  const [categoriaProductoEdicion, setCategoriaProductoEdicion] = useState("");
+  const [precioProductoEdicion, setPrecioProductoEdicion] = useState("");
+  const [competidorProductoEdicion, setCompetidorProductoEdicion] = useState("");
+  const [accionProductoId, setAccionProductoId] = useState("");
+
   const esSuperadmin = perfil?.rol === "superadmin";
   const puedeGestionarCompetidores =
     perfil?.rol === "admin" || esSuperadmin;
@@ -210,6 +222,8 @@ export default function DashboardPage() {
     setCompetidorProducto("");
     setMensajeProducto("");
     setMensajeCsv("");
+    setEditandoCompetidorId("");
+    setEditandoProductoId("");
     setError("");
     setCargandoDatos(true);
 
@@ -430,6 +444,577 @@ export default function DashboardPage() {
       ));
     } finally {
       setGuardandoProducto(false);
+    }
+  }
+
+  function empresaDestinoActual() {
+    return esSuperadmin
+      ? empresaSeleccionada
+      : perfil?.empresaId ?? "";
+  }
+
+  function iniciarEdicionCompetidor(
+    competidor: Competidor
+  ) {
+    setError("");
+    setMensajeCompetidor("");
+    setEditandoProductoId("");
+
+    setEditandoCompetidorId(competidor.id);
+    setNombreCompetidorEdicion(competidor.nombre);
+    setTipoCompetidorEdicion(
+      competidor.tipo ?? "empresa"
+    );
+  }
+
+  function cancelarEdicionCompetidor() {
+    setEditandoCompetidorId("");
+    setNombreCompetidorEdicion("");
+    setTipoCompetidorEdicion("");
+  }
+
+  async function guardarEdicionCompetidor(
+    evento: FormEvent<HTMLFormElement>
+  ) {
+    evento.preventDefault();
+
+    setError("");
+    setMensajeCompetidor("");
+
+    if (!puedeGestionarCompetidores) {
+      setError(
+        t(
+          "Tu rol no tiene permiso para editar competidores.",
+          "Your role does not have permission to edit competitors."
+        )
+      );
+      return;
+    }
+
+    const empresaDestino = empresaDestinoActual();
+
+    if (!empresaDestino || !editandoCompetidorId) {
+      setError(
+        t(
+          "No hay un competidor válido para editar.",
+          "There is no valid competitor to edit."
+        )
+      );
+      return;
+    }
+
+    const nombre = nombreCompetidorEdicion.trim();
+    const tipo =
+      tipoCompetidorEdicion.trim() || "empresa";
+
+    if (!nombre) {
+      setError(
+        t(
+          "Debes ingresar el nombre del competidor.",
+          "You must enter the competitor name."
+        )
+      );
+      return;
+    }
+
+    setAccionCompetidorId(editandoCompetidorId);
+
+    try {
+      const competidorRef = doc(
+        db,
+        "competidores",
+        editandoCompetidorId
+      );
+
+      const competidorSnap =
+        await getDoc(competidorRef);
+
+      if (
+        !competidorSnap.exists() ||
+        competidorSnap.data().empresaId !==
+          empresaDestino
+      ) {
+        throw new Error(
+          t(
+            "El competidor no pertenece a la empresa actual.",
+            "The competitor does not belong to the current company."
+          )
+        );
+      }
+
+      await setDoc(
+        competidorRef,
+        {
+          nombre,
+          tipo,
+          actualizado_en: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      const datosActualizados =
+        await obtenerDatosEmpresa(empresaDestino);
+
+      setCompetidores(
+        datosActualizados.competidores
+      );
+
+      setProductos(
+        datosActualizados.productos
+      );
+
+      cancelarEdicionCompetidor();
+
+      setMensajeCompetidor(
+        t(
+          "Competidor actualizado correctamente.",
+          "Competitor updated successfully."
+        )
+      );
+    } catch (err) {
+      console.error(err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : t(
+              "No fue posible actualizar el competidor.",
+              "The competitor could not be updated."
+            )
+      );
+    } finally {
+      setAccionCompetidorId("");
+    }
+  }
+
+  async function cambiarEstadoCompetidor(
+    competidor: Competidor
+  ) {
+    setError("");
+    setMensajeCompetidor("");
+
+    if (!puedeGestionarCompetidores) {
+      setError(
+        t(
+          "Tu rol no tiene permiso para cambiar el estado de competidores.",
+          "Your role does not have permission to change competitor status."
+        )
+      );
+      return;
+    }
+
+    const empresaDestino = empresaDestinoActual();
+
+    if (!empresaDestino) {
+      return;
+    }
+
+    const nuevoEstado =
+      competidor.estado === "inactivo"
+        ? "activo"
+        : "inactivo";
+
+    setAccionCompetidorId(competidor.id);
+
+    try {
+      const competidorRef = doc(
+        db,
+        "competidores",
+        competidor.id
+      );
+
+      const competidorSnap =
+        await getDoc(competidorRef);
+
+      if (
+        !competidorSnap.exists() ||
+        competidorSnap.data().empresaId !==
+          empresaDestino
+      ) {
+        throw new Error(
+          t(
+            "El competidor no pertenece a la empresa actual.",
+            "The competitor does not belong to the current company."
+          )
+        );
+      }
+
+      await setDoc(
+        competidorRef,
+        {
+          estado: nuevoEstado,
+          actualizado_en: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      const datosActualizados =
+        await obtenerDatosEmpresa(empresaDestino);
+
+      setCompetidores(
+        datosActualizados.competidores
+      );
+
+      setProductos(
+        datosActualizados.productos
+      );
+
+      if (
+        editandoCompetidorId === competidor.id
+      ) {
+        cancelarEdicionCompetidor();
+      }
+
+      setMensajeCompetidor(
+        nuevoEstado === "activo"
+          ? t(
+              "Competidor reactivado correctamente.",
+              "Competitor reactivated successfully."
+            )
+          : t(
+              "Competidor desactivado correctamente.",
+              "Competitor deactivated successfully."
+            )
+      );
+    } catch (err) {
+      console.error(err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : t(
+              "No fue posible cambiar el estado del competidor.",
+              "The competitor status could not be changed."
+            )
+      );
+    } finally {
+      setAccionCompetidorId("");
+    }
+  }
+
+  function iniciarEdicionProducto(
+    producto: Producto
+  ) {
+    setError("");
+    setMensajeProducto("");
+    setEditandoCompetidorId("");
+
+    setEditandoProductoId(producto.id);
+    setNombreProductoEdicion(producto.nombre);
+    setCategoriaProductoEdicion(
+      producto.categoria ?? ""
+    );
+
+    setPrecioProductoEdicion(
+      producto.precio === null ||
+        producto.precio === undefined
+        ? ""
+        : String(producto.precio)
+    );
+
+    setCompetidorProductoEdicion(
+      producto.competidorId
+    );
+  }
+
+  function cancelarEdicionProducto() {
+    setEditandoProductoId("");
+    setNombreProductoEdicion("");
+    setCategoriaProductoEdicion("");
+    setPrecioProductoEdicion("");
+    setCompetidorProductoEdicion("");
+  }
+
+  async function guardarEdicionProducto(
+    evento: FormEvent<HTMLFormElement>
+  ) {
+    evento.preventDefault();
+
+    setError("");
+    setMensajeProducto("");
+
+    if (!puedeGestionarProductos) {
+      setError(
+        t(
+          "Tu rol no tiene permiso para editar productos.",
+          "Your role does not have permission to edit products."
+        )
+      );
+      return;
+    }
+
+    const empresaDestino = empresaDestinoActual();
+
+    if (!empresaDestino || !editandoProductoId) {
+      setError(
+        t(
+          "No hay un producto válido para editar.",
+          "There is no valid product to edit."
+        )
+      );
+      return;
+    }
+
+    const nombre = nombreProductoEdicion.trim();
+    const categoria =
+      categoriaProductoEdicion.trim();
+
+    const competidorId =
+      competidorProductoEdicion;
+
+    if (!nombre || !categoria || !competidorId) {
+      setError(
+        t(
+          "Nombre, categoría y competidor son obligatorios.",
+          "Name, category and competitor are required."
+        )
+      );
+      return;
+    }
+
+    let precio: number | null = null;
+
+    if (precioProductoEdicion.trim() !== "") {
+      precio = Number(precioProductoEdicion);
+
+      if (!Number.isFinite(precio) || precio < 0) {
+        setError(
+          t(
+            "El precio debe ser un número válido mayor o igual a 0.",
+            "The price must be a valid number greater than or equal to 0."
+          )
+        );
+        return;
+      }
+    }
+
+    setAccionProductoId(editandoProductoId);
+
+    try {
+      const productoRef = doc(
+        db,
+        "productos",
+        editandoProductoId
+      );
+
+      const productoSnap =
+        await getDoc(productoRef);
+
+      if (!productoSnap.exists()) {
+        throw new Error(
+          t(
+            "El producto ya no existe.",
+            "The product no longer exists."
+          )
+        );
+      }
+
+      const competidorActualId =
+        productoSnap.data().competidorId;
+
+      const [
+        competidorActualSnap,
+        competidorNuevoSnap,
+      ] = await Promise.all([
+        getDoc(
+          doc(
+            db,
+            "competidores",
+            competidorActualId
+          )
+        ),
+        getDoc(
+          doc(
+            db,
+            "competidores",
+            competidorId
+          )
+        ),
+      ]);
+
+      if (
+        !competidorActualSnap.exists() ||
+        competidorActualSnap.data().empresaId !==
+          empresaDestino ||
+        !competidorNuevoSnap.exists() ||
+        competidorNuevoSnap.data().empresaId !==
+          empresaDestino
+      ) {
+        throw new Error(
+          t(
+            "El producto o el competidor seleccionado no pertenece a la empresa actual.",
+            "The product or selected competitor does not belong to the current company."
+          )
+        );
+      }
+
+      await setDoc(
+        productoRef,
+        {
+          nombre,
+          categoria,
+          precio,
+          competidorId,
+          actualizado_en: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      const datosActualizados =
+        await obtenerDatosEmpresa(empresaDestino);
+
+      setCompetidores(
+        datosActualizados.competidores
+      );
+
+      setProductos(
+        datosActualizados.productos
+      );
+
+      cancelarEdicionProducto();
+
+      setMensajeProducto(
+        t(
+          "Producto actualizado correctamente.",
+          "Product updated successfully."
+        )
+      );
+    } catch (err) {
+      console.error(err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : t(
+              "No fue posible actualizar el producto.",
+              "The product could not be updated."
+            )
+      );
+    } finally {
+      setAccionProductoId("");
+    }
+  }
+
+  async function cambiarEstadoProducto(
+    producto: Producto
+  ) {
+    setError("");
+    setMensajeProducto("");
+
+    if (!puedeGestionarProductos) {
+      setError(
+        t(
+          "Tu rol no tiene permiso para cambiar el estado de productos.",
+          "Your role does not have permission to change product status."
+        )
+      );
+      return;
+    }
+
+    const empresaDestino = empresaDestinoActual();
+
+    if (!empresaDestino) {
+      return;
+    }
+
+    const nuevoEstado =
+      producto.estado === "inactivo"
+        ? "activo"
+        : "inactivo";
+
+    setAccionProductoId(producto.id);
+
+    try {
+      const productoRef = doc(
+        db,
+        "productos",
+        producto.id
+      );
+
+      const productoSnap =
+        await getDoc(productoRef);
+
+      if (!productoSnap.exists()) {
+        throw new Error(
+          t(
+            "El producto ya no existe.",
+            "The product no longer exists."
+          )
+        );
+      }
+
+      const competidorId =
+        productoSnap.data().competidorId;
+
+      const competidorSnap = await getDoc(
+        doc(
+          db,
+          "competidores",
+          competidorId
+        )
+      );
+
+      if (
+        !competidorSnap.exists() ||
+        competidorSnap.data().empresaId !==
+          empresaDestino
+      ) {
+        throw new Error(
+          t(
+            "El producto no pertenece a la empresa actual.",
+            "The product does not belong to the current company."
+          )
+        );
+      }
+
+      await setDoc(
+        productoRef,
+        {
+          estado: nuevoEstado,
+          actualizado_en: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      const datosActualizados =
+        await obtenerDatosEmpresa(empresaDestino);
+
+      setCompetidores(
+        datosActualizados.competidores
+      );
+
+      setProductos(
+        datosActualizados.productos
+      );
+
+      if (editandoProductoId === producto.id) {
+        cancelarEdicionProducto();
+      }
+
+      setMensajeProducto(
+        nuevoEstado === "activo"
+          ? t(
+              "Producto reactivado correctamente.",
+              "Product reactivated successfully."
+            )
+          : t(
+              "Producto desactivado correctamente.",
+              "Product deactivated successfully."
+            )
+      );
+    } catch (err) {
+      console.error(err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : t(
+              "No fue posible cambiar el estado del producto.",
+              "The product status could not be changed."
+            )
+      );
+    } finally {
+      setAccionProductoId("");
     }
   }
 
@@ -845,20 +1430,187 @@ export default function DashboardPage() {
                   padding: "14px 0",
                 }}
               >
-                <strong>{competidor.nombre}</strong>
-                <div>
-                  {t("Tipo", "Type")}:{" "}
-                  {competidor.tipo ??
-                    t("Sin definir", "Not defined")}
-                </div>
-                <div>
-                  {t("Estado", "Status")}:{" "}
-                  {competidor.estado === "activo"
-                    ? t("activo", "active")
-                    : competidor.estado === "inactivo"
-                    ? t("inactivo", "inactive")
-                    : t("Sin definir", "Not defined")}
-                </div>
+                {editandoCompetidorId ===
+                competidor.id ? (
+                  <form
+                    onSubmit={
+                      guardarEdicionCompetidor
+                    }
+                    style={{
+                      padding: "14px",
+                      border:
+                        "1px solid #e5e5e5",
+                      borderRadius: "8px",
+                      background: "#fafafa",
+                    }}
+                  >
+                    <strong>
+                      {t(
+                        "Editar competidor",
+                        "Edit competitor"
+                      )}
+                    </strong>
+
+                    <input
+                      value={
+                        nombreCompetidorEdicion
+                      }
+                      onChange={(e) =>
+                        setNombreCompetidorEdicion(
+                          e.target.value
+                        )
+                      }
+                      style={{
+                        width: "100%",
+                        marginTop: "12px",
+                        padding: "10px",
+                        border:
+                          "1px solid #ccc",
+                        borderRadius: "8px",
+                        boxSizing:
+                          "border-box",
+                      }}
+                    />
+
+                    <input
+                      value={
+                        tipoCompetidorEdicion
+                      }
+                      onChange={(e) =>
+                        setTipoCompetidorEdicion(
+                          e.target.value
+                        )
+                      }
+                      style={{
+                        width: "100%",
+                        marginTop: "10px",
+                        padding: "10px",
+                        border:
+                          "1px solid #ccc",
+                        borderRadius: "8px",
+                        boxSizing:
+                          "border-box",
+                      }}
+                    />
+
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "8px",
+                        marginTop: "12px",
+                      }}
+                    >
+                      <button
+                        type="submit"
+                        disabled={
+                          accionCompetidorId ===
+                          competidor.id
+                        }
+                      >
+                        {t("Guardar", "Save")}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={
+                          cancelarEdicionCompetidor
+                        }
+                      >
+                        {t(
+                          "Cancelar",
+                          "Cancel"
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <strong>
+                      {competidor.nombre}
+                    </strong>
+
+                    <div>
+                      {t("Tipo", "Type")}:{" "}
+                      {competidor.tipo ??
+                        t(
+                          "Sin definir",
+                          "Not defined"
+                        )}
+                    </div>
+
+                    <div>
+                      {t(
+                        "Estado",
+                        "Status"
+                      )}
+                      :{" "}
+                      {competidor.estado ===
+                      "activo"
+                        ? t(
+                            "activo",
+                            "active"
+                          )
+                        : competidor.estado ===
+                          "inactivo"
+                        ? t(
+                            "inactivo",
+                            "inactive"
+                          )
+                        : t(
+                            "Sin definir",
+                            "Not defined"
+                          )}
+                    </div>
+
+                    {puedeGestionarCompetidores && (
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "8px",
+                          marginTop: "10px",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            iniciarEdicionCompetidor(
+                              competidor
+                            )
+                          }
+                        >
+                          {t(
+                            "Editar",
+                            "Edit"
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={
+                            accionCompetidorId ===
+                            competidor.id
+                          }
+                          onClick={() =>
+                            cambiarEstadoCompetidor(
+                              competidor
+                            )
+                          }
+                        >
+                          {competidor.estado ===
+                          "inactivo"
+                            ? t(
+                                "Reactivar",
+                                "Reactivate"
+                              )
+                            : t(
+                                "Desactivar",
+                                "Deactivate"
+                              )}
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             ))
           )}
@@ -1161,32 +1913,290 @@ export default function DashboardPage() {
                   padding: "14px 0",
                 }}
               >
-                <strong>{producto.nombre}</strong>
-                <div>
-                  {t("Categoría", "Category")}:{" "}
-                  {producto.categoria ??
-                    t("Sin definir", "Not defined")}
-                </div>
-                <div>
-                  {t("Precio", "Price")}:{" "}
-                  {producto.precio === null || producto.precio === undefined
-                    ? t("Sin precio", "No price")
-                    : `$${producto.precio.toLocaleString("es-CL")}`}
-                </div>
-                <div>
-                  {t("Competidor", "Competitor")}:{" "}
-                  {competidores.find(
-                    (competidor) => competidor.id === producto.competidorId
-                  )?.nombre ?? producto.competidorId}
-                </div>
-                <div>
-                  {t("Estado", "Status")}:{" "}
-                  {producto.estado === "activo"
-                    ? t("activo", "active")
-                    : producto.estado === "inactivo"
-                    ? t("inactivo", "inactive")
-                    : t("Sin definir", "Not defined")}
-                </div>
+                {editandoProductoId ===
+                producto.id ? (
+                  <form
+                    onSubmit={
+                      guardarEdicionProducto
+                    }
+                    style={{
+                      padding: "14px",
+                      border:
+                        "1px solid #e5e5e5",
+                      borderRadius: "8px",
+                      background: "#fafafa",
+                    }}
+                  >
+                    <strong>
+                      {t(
+                        "Editar producto",
+                        "Edit product"
+                      )}
+                    </strong>
+
+                    <input
+                      value={
+                        nombreProductoEdicion
+                      }
+                      onChange={(e) =>
+                        setNombreProductoEdicion(
+                          e.target.value
+                        )
+                      }
+                      style={{
+                        width: "100%",
+                        marginTop: "12px",
+                        padding: "10px",
+                        border:
+                          "1px solid #ccc",
+                        borderRadius: "8px",
+                        boxSizing:
+                          "border-box",
+                      }}
+                    />
+
+                    <input
+                      value={
+                        categoriaProductoEdicion
+                      }
+                      onChange={(e) =>
+                        setCategoriaProductoEdicion(
+                          e.target.value
+                        )
+                      }
+                      style={{
+                        width: "100%",
+                        marginTop: "10px",
+                        padding: "10px",
+                        border:
+                          "1px solid #ccc",
+                        borderRadius: "8px",
+                        boxSizing:
+                          "border-box",
+                      }}
+                    />
+
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={
+                        precioProductoEdicion
+                      }
+                      onChange={(e) =>
+                        setPrecioProductoEdicion(
+                          e.target.value
+                        )
+                      }
+                      placeholder={t(
+                        "Precio opcional",
+                        "Optional price"
+                      )}
+                      style={{
+                        width: "100%",
+                        marginTop: "10px",
+                        padding: "10px",
+                        border:
+                          "1px solid #ccc",
+                        borderRadius: "8px",
+                        boxSizing:
+                          "border-box",
+                      }}
+                    />
+
+                    <select
+                      value={
+                        competidorProductoEdicion
+                      }
+                      onChange={(e) =>
+                        setCompetidorProductoEdicion(
+                          e.target.value
+                        )
+                      }
+                      style={{
+                        width: "100%",
+                        marginTop: "10px",
+                        padding: "10px",
+                        border:
+                          "1px solid #ccc",
+                        borderRadius: "8px",
+                        boxSizing:
+                          "border-box",
+                      }}
+                    >
+                      {competidores.map(
+                        (competidor) => (
+                          <option
+                            key={
+                              competidor.id
+                            }
+                            value={
+                              competidor.id
+                            }
+                          >
+                            {
+                              competidor.nombre
+                            }
+                          </option>
+                        )
+                      )}
+                    </select>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "8px",
+                        marginTop: "12px",
+                      }}
+                    >
+                      <button
+                        type="submit"
+                        disabled={
+                          accionProductoId ===
+                          producto.id
+                        }
+                      >
+                        {t("Guardar", "Save")}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={
+                          cancelarEdicionProducto
+                        }
+                      >
+                        {t(
+                          "Cancelar",
+                          "Cancel"
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <strong>
+                      {producto.nombre}
+                    </strong>
+
+                    <div>
+                      {t(
+                        "Categoría",
+                        "Category"
+                      )}
+                      :{" "}
+                      {producto.categoria ??
+                        t(
+                          "Sin definir",
+                          "Not defined"
+                        )}
+                    </div>
+
+                    <div>
+                      {t(
+                        "Precio",
+                        "Price"
+                      )}
+                      :{" "}
+                      {producto.precio ===
+                        null ||
+                      producto.precio ===
+                        undefined
+                        ? t(
+                            "Sin precio",
+                            "No price"
+                          )
+                        : `$${producto.precio.toLocaleString(
+                            "es-CL"
+                          )}`}
+                    </div>
+
+                    <div>
+                      {t(
+                        "Competidor",
+                        "Competitor"
+                      )}
+                      :{" "}
+                      {competidores.find(
+                        (competidor) =>
+                          competidor.id ===
+                          producto.competidorId
+                      )?.nombre ??
+                        producto.competidorId}
+                    </div>
+
+                    <div>
+                      {t(
+                        "Estado",
+                        "Status"
+                      )}
+                      :{" "}
+                      {producto.estado ===
+                      "activo"
+                        ? t(
+                            "activo",
+                            "active"
+                          )
+                        : producto.estado ===
+                          "inactivo"
+                        ? t(
+                            "inactivo",
+                            "inactive"
+                          )
+                        : t(
+                            "Sin definir",
+                            "Not defined"
+                          )}
+                    </div>
+
+                    {puedeGestionarProductos && (
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "8px",
+                          marginTop: "10px",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            iniciarEdicionProducto(
+                              producto
+                            )
+                          }
+                        >
+                          {t(
+                            "Editar",
+                            "Edit"
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={
+                            accionProductoId ===
+                            producto.id
+                          }
+                          onClick={() =>
+                            cambiarEstadoProducto(
+                              producto
+                            )
+                          }
+                        >
+                          {producto.estado ===
+                          "inactivo"
+                            ? t(
+                                "Reactivar",
+                                "Reactivate"
+                              )
+                            : t(
+                                "Desactivar",
+                                "Deactivate"
+                              )}
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             ))
           )}
