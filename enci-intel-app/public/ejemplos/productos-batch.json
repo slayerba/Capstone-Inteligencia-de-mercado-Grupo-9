@@ -1,0 +1,9 @@
+[
+  {
+    "nombre": "Producto JSON Demo",
+    "categoria": "Salud animal",
+    "precio": 16990,
+    "competidorId": "a_comp_01",
+    "estado": "activo"
+  }
+]

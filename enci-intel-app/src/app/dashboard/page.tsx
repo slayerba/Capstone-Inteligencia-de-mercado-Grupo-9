@@ -15,6 +15,12 @@ import {
 } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
+import {
+  SelectorIdioma,
+  tr,
+  useIdioma,
+} from "@/lib/i18n";
+import { parsearArchivoProductos } from "@/lib/importar-productos";
 
 type Perfil = {
   email?: string;
@@ -44,149 +50,6 @@ type Producto = {
   precio?: number | null;
   estado?: string;
 };
-
-type ProductoCsv = {
-  nombre: string;
-  categoria: string;
-  precio: number | null;
-  competidorId: string;
-  estado: "activo" | "inactivo";
-};
-
-function separarLineaCsv(linea: string, delimitador: string) {
-  const valores: string[] = [];
-  let actual = "";
-  let entreComillas = false;
-
-  for (let i = 0; i < linea.length; i += 1) {
-    const caracter = linea[i];
-
-    if (caracter === '"') {
-      if (entreComillas && linea[i + 1] === '"') {
-        actual += '"';
-        i += 1;
-      } else {
-        entreComillas = !entreComillas;
-      }
-    } else if (caracter === delimitador && !entreComillas) {
-      valores.push(actual.trim());
-      actual = "";
-    } else {
-      actual += caracter;
-    }
-  }
-
-  valores.push(actual.trim());
-
-  return valores;
-}
-
-function parsearProductosCsv(texto: string): ProductoCsv[] {
-  const lineas = texto
-    .replace(/\r/g, "")
-    .split("\n")
-    .filter((linea) => linea.trim() !== "");
-
-  if (lineas.length < 2) {
-    throw new Error(
-      "El CSV debe contener una cabecera y al menos un producto."
-    );
-  }
-
-  const primeraLinea = lineas[0].replace(/^\uFEFF/, "");
-
-  const delimitador =
-    primeraLinea.includes(";") && !primeraLinea.includes(",")
-      ? ";"
-      : ",";
-
-  const cabeceras = separarLineaCsv(
-    primeraLinea,
-    delimitador
-  ).map((cabecera) => cabecera.trim().toLowerCase());
-
-  const esperadas = [
-    "nombre",
-    "categoria",
-    "precio",
-    "competidorid",
-    "estado",
-  ];
-
-  const faltantes = esperadas.filter(
-    (cabecera) => !cabeceras.includes(cabecera)
-  );
-
-  if (faltantes.length > 0) {
-    throw new Error(
-      `Faltan columnas obligatorias: ${faltantes.join(", ")}.`
-    );
-  }
-
-  const indice = (nombre: string) => cabeceras.indexOf(nombre);
-
-  return lineas.slice(1).map((linea, posicion) => {
-    const columnas = separarLineaCsv(linea, delimitador);
-
-    const nombre = columnas[indice("nombre")]?.trim() ?? "";
-    const categoria = columnas[indice("categoria")]?.trim() ?? "";
-    const precioTexto = columnas[indice("precio")]?.trim() ?? "";
-    const competidorId =
-      columnas[indice("competidorid")]?.trim() ?? "";
-    const estadoTexto =
-      columnas[indice("estado")]?.trim().toLowerCase() ?? "";
-
-    if (!nombre) {
-      throw new Error(
-        `Fila ${posicion + 2}: el nombre está vacío.`
-      );
-    }
-
-    if (!categoria) {
-      throw new Error(
-        `Fila ${posicion + 2}: la categoría está vacía.`
-      );
-    }
-
-    if (!competidorId) {
-      throw new Error(
-        `Fila ${posicion + 2}: competidorId está vacío.`
-      );
-    }
-
-    let precio: number | null = null;
-
-    if (
-      precioTexto !== "" &&
-      precioTexto.toLowerCase() !== "null"
-    ) {
-      precio = Number(precioTexto);
-
-      if (!Number.isFinite(precio) || precio < 0) {
-        throw new Error(
-          `Fila ${posicion + 2}: el precio no es válido.`
-        );
-      }
-    }
-
-    if (
-      estadoTexto !== "activo" &&
-      estadoTexto !== "inactivo"
-    ) {
-      throw new Error(
-        `Fila ${posicion + 2}: estado debe ser activo o inactivo.`
-      );
-    }
-
-    return {
-      nombre,
-      categoria,
-      precio,
-      competidorId,
-      estado: estadoTexto as "activo" | "inactivo",
-    };
-  });
-}
 
 // Carga competidores y productos de UNA empresa.
 // La usan tanto los usuarios normales (su propia empresa)
@@ -233,6 +96,9 @@ async function obtenerDatosEmpresa(empresaId: string) {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { idioma, cambiarIdioma } = useIdioma();
+  const t = (es: string, en: string) =>
+    tr(idioma, es, en);
 
   const [usuario, setUsuario] = useState<User | null>(null);
   const [perfil, setPerfil] = useState<Perfil | null>(null);
@@ -368,7 +234,10 @@ export default function DashboardPage() {
     setError("");
 
     if (!puedeGestionarCompetidores) {
-      setError("Tu rol no tiene permiso para crear competidores.");
+      setError(t(
+        "Tu rol no tiene permiso para crear competidores.",
+        "Your role does not have permission to create competitors."
+      ));
       return;
     }
 
@@ -377,7 +246,10 @@ export default function DashboardPage() {
       : perfil?.empresaId ?? "";
 
     if (!empresaDestino) {
-      setError("No hay una empresa seleccionada para crear el competidor.");
+      setError(t(
+        "No hay una empresa seleccionada para crear el competidor.",
+        "There is no selected company for creating the competitor."
+      ));
       return;
     }
 
@@ -385,7 +257,10 @@ export default function DashboardPage() {
     const tipo = tipoCompetidor.trim() || "empresa";
 
     if (!nombre) {
-      setError("Debes ingresar el nombre del competidor.");
+      setError(t(
+        "Debes ingresar el nombre del competidor.",
+        "You must enter the competitor name."
+      ));
       return;
     }
 
@@ -410,10 +285,16 @@ export default function DashboardPage() {
 
       setNombreCompetidor("");
       setTipoCompetidor("empresa");
-      setMensajeCompetidor("Competidor agregado correctamente.");
+      setMensajeCompetidor(t(
+        "Competidor agregado correctamente.",
+        "Competitor added successfully."
+      ));
     } catch (err) {
       console.error(err);
-      setError("No fue posible crear el competidor.");
+      setError(t(
+        "No fue posible crear el competidor.",
+        "The competitor could not be created."
+      ));
     } finally {
       setGuardandoCompetidor(false);
     }
@@ -426,7 +307,10 @@ export default function DashboardPage() {
     setError("");
 
     if (!puedeGestionarProductos) {
-      setError("Tu rol no tiene permiso para crear productos.");
+      setError(t(
+        "Tu rol no tiene permiso para crear productos.",
+        "Your role does not have permission to create products."
+      ));
       return;
     }
 
@@ -435,17 +319,26 @@ export default function DashboardPage() {
     const competidorId = competidorProducto;
 
     if (!nombre) {
-      setError("Debes ingresar el nombre del producto.");
+      setError(t(
+        "Debes ingresar el nombre del producto.",
+        "You must enter the product name."
+      ));
       return;
     }
 
     if (!categoria) {
-      setError("Debes ingresar la categoría del producto.");
+      setError(t(
+        "Debes ingresar la categoría del producto.",
+        "You must enter the product category."
+      ));
       return;
     }
 
     if (!competidorId) {
-      setError("Debes seleccionar un competidor.");
+      setError(t(
+        "Debes seleccionar un competidor.",
+        "You must select a competitor."
+      ));
       return;
     }
 
@@ -454,7 +347,10 @@ export default function DashboardPage() {
     );
 
     if (!competidorValido) {
-      setError("El competidor seleccionado no pertenece a la empresa actual.");
+      setError(t(
+        "El competidor seleccionado no pertenece a la empresa actual.",
+        "The selected competitor does not belong to the current company."
+      ));
       return;
     }
 
@@ -464,7 +360,10 @@ export default function DashboardPage() {
       precio = Number(precioProducto);
 
       if (!Number.isFinite(precio) || precio < 0) {
-        setError("El precio debe ser un número válido mayor o igual a 0.");
+        setError(t(
+          "El precio debe ser un número válido mayor o igual a 0.",
+          "The price must be a valid number greater than or equal to 0."
+        ));
         return;
       }
     }
@@ -474,7 +373,10 @@ export default function DashboardPage() {
       : perfil?.empresaId ?? "";
 
     if (!empresaDestino) {
-      setError("No hay una empresa seleccionada para crear el producto.");
+      setError(t(
+        "No hay una empresa seleccionada para crear el producto.",
+        "There is no selected company for creating the product."
+      ));
       return;
     }
 
@@ -488,7 +390,10 @@ export default function DashboardPage() {
         !competidorSnap.exists() ||
         competidorSnap.data().empresaId !== empresaDestino
       ) {
-        setError("El competidor no pertenece a la empresa seleccionada.");
+        setError(t(
+          "El competidor no pertenece a la empresa seleccionada.",
+          "The competitor does not belong to the selected company."
+        ));
         return;
       }
 
@@ -513,16 +418,22 @@ export default function DashboardPage() {
       setCategoriaProducto("");
       setPrecioProducto("");
       setCompetidorProducto("");
-      setMensajeProducto("Producto agregado correctamente.");
+      setMensajeProducto(t(
+        "Producto agregado correctamente.",
+        "Product added successfully."
+      ));
     } catch (err) {
       console.error(err);
-      setError("No fue posible crear el producto.");
+      setError(t(
+        "No fue posible crear el producto.",
+        "The product could not be created."
+      ));
     } finally {
       setGuardandoProducto(false);
     }
   }
 
-  async function importarProductosCsv(
+  async function importarProductosArchivo(
     evento: ChangeEvent<HTMLInputElement>
   ) {
     const archivo = evento.target.files?.[0];
@@ -535,13 +446,27 @@ export default function DashboardPage() {
     setMensajeCsv("");
 
     if (!puedeGestionarProductos) {
-      setError("Tu rol no tiene permiso para importar productos.");
+      setError(t(
+        "Tu rol no tiene permiso para importar productos.",
+        "Your role does not have permission to import products."
+      ));
       evento.target.value = "";
       return;
     }
 
-    if (!archivo.name.toLowerCase().endsWith(".csv")) {
-      setError("Debes seleccionar un archivo con extensión .csv.");
+    const extension =
+      archivo.name.split(".").pop()?.toLowerCase();
+
+    if (
+      !extension ||
+      !["csv", "xlsx", "json"].includes(extension)
+    ) {
+      setError(
+        t(
+          "Formato no soportado. Usa CSV, XLSX o JSON.",
+          "Unsupported format. Use CSV, XLSX or JSON."
+        )
+      );
       evento.target.value = "";
       return;
     }
@@ -561,8 +486,11 @@ export default function DashboardPage() {
     setImportandoCsv(true);
 
     try {
-      const texto = await archivo.text();
-      const filas = parsearProductosCsv(texto);
+      const filas =
+        await parsearArchivoProductos(
+          archivo,
+          idioma
+        );
 
       if (filas.length > 450) {
         throw new Error(
@@ -689,40 +617,59 @@ export default function DashboardPage() {
           <div>
             <h1 style={{ margin: 0 }}>Enci-Intel</h1>
             <p style={{ color: "#666" }}>
-              Plataforma de inteligencia de mercado
+              {t(
+                "Plataforma de inteligencia de mercado",
+                "Market intelligence platform"
+              )}
             </p>
           </div>
 
-          <button
-            onClick={cerrarSesion}
+          <div
             style={{
-              padding: "10px 18px",
-              borderRadius: "8px",
-              border: "1px solid #ccc",
-              background: "#fff",
-              cursor: "pointer",
+              display: "flex",
+              gap: "12px",
+              alignItems: "center",
             }}
           >
-            Cerrar sesión
-          </button>
+            <SelectorIdioma
+              idioma={idioma}
+              onChange={cambiarIdioma}
+            />
+
+            <button
+              onClick={cerrarSesion}
+              style={{
+                padding: "10px 18px",
+                borderRadius: "8px",
+                border: "1px solid #ccc",
+                background: "#fff",
+                cursor: "pointer",
+              }}
+            >
+              {t("Cerrar sesión", "Sign out")}
+            </button>
+          </div>
         </header>
 
         <section style={tarjeta}>
-          <h2>Sesión activa</h2>
-          <p><strong>Usuario:</strong> {usuario?.email}</p>
+          <h2>{t("Sesión activa", "Active session")}</h2>
+          <p><strong>{t("Usuario", "User")}:</strong> {usuario?.email}</p>
           <p>
-            <strong>Empresa:</strong>{" "}
-            {esSuperadmin ? "Todas (superadmin)" : perfil?.empresaId}
+            <strong>{t("Empresa", "Company")}:</strong>{" "}
+            {esSuperadmin ? t("Todas (superadmin)", "All (superadmin)") : perfil?.empresaId}
           </p>
-          <p><strong>Rol:</strong> {perfil?.rol}</p>
+          <p><strong>{t("Rol", "Role")}:</strong> {perfil?.rol}</p>
         </section>
 
         {esSuperadmin && (
           <section style={tarjeta}>
-            <h2>Empresas de la plataforma</h2>
+            <h2>{t("Empresas de la plataforma", "Platform companies")}</h2>
 
             {empresas.length === 0 ? (
-              <p>No hay empresas registradas.</p>
+              <p>{t(
+                "No hay empresas registradas.",
+                "No companies are registered."
+              )}</p>
             ) : (
               <>
                 {empresas.map((empresa) => (
@@ -747,7 +694,10 @@ export default function DashboardPage() {
                     marginBottom: "6px",
                   }}
                 >
-                  Ver competidores y productos de:
+                  {t(
+                    "Ver competidores y productos de:",
+                    "View competitors and products for:"
+                  )}
                 </label>
                 <select
                   id="empresa"
@@ -780,7 +730,7 @@ export default function DashboardPage() {
 
         <section style={tarjeta}>
           <h2>
-            Competidores
+            {t("Competidores", "Competitors")}
             {esSuperadmin && empresaSeleccionada
               ? ` de ${empresaSeleccionada}`
               : ""}
@@ -797,10 +747,12 @@ export default function DashboardPage() {
                 background: "#fafafa",
               }}
             >
-              <h3 style={{ marginTop: 0 }}>Agregar competidor</h3>
+              <h3 style={{ marginTop: 0 }}>
+                {t("Agregar competidor", "Add competitor")}
+              </h3>
 
               <p style={{ color: "#666" }}>
-                Empresa destino:{" "}
+                {t("Empresa destino", "Target company")}:{" "}
                 <strong>
                   {esSuperadmin ? empresaSeleccionada : perfil?.empresaId}
                 </strong>
@@ -810,7 +762,7 @@ export default function DashboardPage() {
                 htmlFor="nombreCompetidor"
                 style={{ display: "block", marginBottom: "6px" }}
               >
-                Nombre
+                {t("Nombre", "Name")}
               </label>
 
               <input
@@ -833,7 +785,7 @@ export default function DashboardPage() {
                 htmlFor="tipoCompetidor"
                 style={{ display: "block", marginBottom: "6px" }}
               >
-                Tipo
+                {t("Tipo", "Type")}
               </label>
 
               <input
@@ -865,8 +817,8 @@ export default function DashboardPage() {
                 }}
               >
                 {guardandoCompetidor
-                  ? "Guardando..."
-                  : "Agregar competidor"}
+                  ? t("Guardando...", "Saving...")
+                  : t("Agregar competidor", "Add competitor")}
               </button>
 
               {mensajeCompetidor && (
@@ -878,9 +830,12 @@ export default function DashboardPage() {
           )}
 
           {cargandoDatos ? (
-            <p>Cargando...</p>
+            <p>{t("Cargando...", "Loading...")}</p>
           ) : competidores.length === 0 ? (
-            <p>No existen competidores asociados a esta empresa.</p>
+            <p>{t(
+              "No existen competidores asociados a esta empresa.",
+              "There are no competitors associated with this company."
+            )}</p>
           ) : (
             competidores.map((competidor) => (
               <div
@@ -891,15 +846,26 @@ export default function DashboardPage() {
                 }}
               >
                 <strong>{competidor.nombre}</strong>
-                <div>Tipo: {competidor.tipo ?? "Sin definir"}</div>
-                <div>Estado: {competidor.estado ?? "Sin definir"}</div>
+                <div>
+                  {t("Tipo", "Type")}:{" "}
+                  {competidor.tipo ??
+                    t("Sin definir", "Not defined")}
+                </div>
+                <div>
+                  {t("Estado", "Status")}:{" "}
+                  {competidor.estado === "activo"
+                    ? t("activo", "active")
+                    : competidor.estado === "inactivo"
+                    ? t("inactivo", "inactive")
+                    : t("Sin definir", "Not defined")}
+                </div>
               </div>
             ))
           )}
         </section>
 
         <section style={{ ...tarjeta, marginBottom: 0 }}>
-          <h2>Productos</h2>
+          <h2>{t("Productos", "Products")}</h2>
 
           {puedeGestionarProductos && (
             <div
@@ -912,25 +878,37 @@ export default function DashboardPage() {
               }}
             >
               <h3 style={{ marginTop: 0 }}>
-                Importar productos por CSV
+                {t(
+                  "Importar productos por archivo",
+                  "Import products from file"
+                )}
               </h3>
 
               <p style={{ color: "#666", lineHeight: 1.5 }}>
-                Carga masiva mediante Firestore Batch. El archivo se
-                valida completamente antes de escribir y solo puede
-                utilizar competidores de la empresa actual.
+                {t(
+                  "Carga masiva mediante Firestore Batch. Se admiten archivos CSV, Excel XLSX y JSON. El archivo se valida completamente antes de escribir y solo puede utilizar competidores de la empresa actual.",
+                  "Bulk upload using Firestore Batch. CSV, Excel XLSX and JSON files are supported. The file is fully validated before writing and can only use competitors from the current company."
+                )}
               </p>
 
               <p style={{ color: "#666", lineHeight: 1.5 }}>
-                Columnas requeridas:
+                {t(
+                  "Columnas requeridas:",
+                  "Required fields:"
+                )}
                 <br />
                 <code>
-                  nombre,categoria,precio,competidorId,estado
+                  {idioma === "es"
+                    ? "nombre,categoria,precio,competidorId,estado"
+                    : "name,category,price,competitorId,status"}
                 </code>
               </p>
 
               <p style={{ color: "#666" }}>
-                Máximo: 450 productos por archivo.
+                {t(
+                  "Máximo: 450 productos por archivo.",
+                  "Maximum: 450 products per file."
+                )}
               </p>
 
               <a
@@ -941,14 +919,33 @@ export default function DashboardPage() {
                   marginBottom: "14px",
                 }}
               >
-                Descargar CSV sintético de ejemplo
+                {t(
+                  "Descargar CSV sintético de ejemplo",
+                  "Download synthetic CSV example"
+                )}
+              </a>
+
+              <span style={{ margin: "0 8px" }}>|</span>
+
+              <a
+                href="/ejemplos/productos-batch.json"
+                download
+                style={{
+                  display: "inline-block",
+                  marginBottom: "14px",
+                }}
+              >
+                {t(
+                  "Descargar JSON sintético de ejemplo",
+                  "Download synthetic JSON example"
+                )}
               </a>
 
               <div>
                 <input
                   type="file"
-                  accept=".csv,text/csv"
-                  onChange={importarProductosCsv}
+                  accept=".csv,.xlsx,.json,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  onChange={importarProductosArchivo}
                   disabled={
                     importandoCsv || competidores.length === 0
                   }
@@ -957,7 +954,10 @@ export default function DashboardPage() {
 
               {importandoCsv && (
                 <p style={{ color: "#666" }}>
-                  Validando y cargando productos...
+                  {t(
+                    "Validando y cargando productos...",
+                    "Validating and uploading products..."
+                  )}
                 </p>
               )}
 
@@ -986,10 +986,12 @@ export default function DashboardPage() {
                 background: "#fafafa",
               }}
             >
-              <h3 style={{ marginTop: 0 }}>Agregar producto</h3>
+              <h3 style={{ marginTop: 0 }}>
+                {t("Agregar producto", "Add product")}
+              </h3>
 
               <p style={{ color: "#666" }}>
-                Empresa destino:{" "}
+                {t("Empresa destino", "Target company")}:{" "}
                 <strong>
                   {esSuperadmin ? empresaSeleccionada : perfil?.empresaId}
                 </strong>
@@ -999,7 +1001,7 @@ export default function DashboardPage() {
                 htmlFor="nombreProducto"
                 style={{ display: "block", marginBottom: "6px" }}
               >
-                Nombre
+                {t("Nombre", "Name")}
               </label>
 
               <input
@@ -1022,7 +1024,7 @@ export default function DashboardPage() {
                 htmlFor="categoriaProducto"
                 style={{ display: "block", marginBottom: "6px" }}
               >
-                Categoría
+                {t("Categoría", "Category")}
               </label>
 
               <input
@@ -1045,7 +1047,10 @@ export default function DashboardPage() {
                 htmlFor="precioProducto"
                 style={{ display: "block", marginBottom: "6px" }}
               >
-                Precio CLP (opcional)
+                {t(
+                  "Precio CLP (opcional)",
+                  "CLP price (optional)"
+                )}
               </label>
 
               <input
@@ -1071,7 +1076,7 @@ export default function DashboardPage() {
                 htmlFor="competidorProducto"
                 style={{ display: "block", marginBottom: "6px" }}
               >
-                Competidor
+                {t("Competidor", "Competitor")}
               </label>
 
               <select
@@ -1088,7 +1093,12 @@ export default function DashboardPage() {
                   boxSizing: "border-box",
                 }}
               >
-                <option value="">Seleccionar competidor</option>
+                <option value="">
+                  {t(
+                    "Seleccionar competidor",
+                    "Select competitor"
+                  )}
+                </option>
 
                 {competidores.map((competidor) => (
                   <option key={competidor.id} value={competidor.id}>
@@ -1099,7 +1109,10 @@ export default function DashboardPage() {
 
               {competidores.length === 0 && (
                 <p style={{ color: "#666" }}>
-                  Primero debes registrar un competidor para esta empresa.
+                  {t(
+                    "Primero debes registrar un competidor para esta empresa.",
+                    "You must first register a competitor for this company."
+                  )}
                 </p>
               )}
 
@@ -1120,8 +1133,8 @@ export default function DashboardPage() {
                 }}
               >
                 {guardandoProducto
-                  ? "Guardando..."
-                  : "Agregar producto"}
+                  ? t("Guardando...", "Saving...")
+                  : t("Agregar producto", "Add product")}
               </button>
 
               {mensajeProducto && (
@@ -1133,9 +1146,12 @@ export default function DashboardPage() {
           )}
 
           {cargandoDatos ? (
-            <p>Cargando...</p>
+            <p>{t("Cargando...", "Loading...")}</p>
           ) : productos.length === 0 ? (
-            <p>No existen productos asociados a los competidores de esta empresa.</p>
+            <p>{t(
+              "No existen productos asociados a los competidores de esta empresa.",
+              "There are no products associated with this company's competitors."
+            )}</p>
           ) : (
             productos.map((producto) => (
               <div
@@ -1146,20 +1162,31 @@ export default function DashboardPage() {
                 }}
               >
                 <strong>{producto.nombre}</strong>
-                <div>Categoría: {producto.categoria ?? "Sin definir"}</div>
                 <div>
-                  Precio:{" "}
+                  {t("Categoría", "Category")}:{" "}
+                  {producto.categoria ??
+                    t("Sin definir", "Not defined")}
+                </div>
+                <div>
+                  {t("Precio", "Price")}:{" "}
                   {producto.precio === null || producto.precio === undefined
-                    ? "Sin precio"
+                    ? t("Sin precio", "No price")
                     : `$${producto.precio.toLocaleString("es-CL")}`}
                 </div>
                 <div>
-                  Competidor:{" "}
+                  {t("Competidor", "Competitor")}:{" "}
                   {competidores.find(
                     (competidor) => competidor.id === producto.competidorId
                   )?.nombre ?? producto.competidorId}
                 </div>
-                <div>Estado: {producto.estado ?? "Sin definir"}</div>
+                <div>
+                  {t("Estado", "Status")}:{" "}
+                  {producto.estado === "activo"
+                    ? t("activo", "active")
+                    : producto.estado === "inactivo"
+                    ? t("inactivo", "inactive")
+                    : t("Sin definir", "Not defined")}
+                </div>
               </div>
             ))
           )}
