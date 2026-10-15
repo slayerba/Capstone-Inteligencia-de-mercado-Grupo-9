@@ -41,6 +41,13 @@ type Competidor = {
   nombre: string;
   tipo?: string;
   estado?: string;
+
+  origen?: "manual" | "web" | "integracion";
+  fuenteNombre?: string | null;
+  fuenteUrl?: string | null;
+  fechaConsulta?: string | null;
+
+  estadoValidacion?: "pendiente" | "validado" | "descartado";
 };
 
 type Producto = {
@@ -74,6 +81,13 @@ async function obtenerDatosEmpresa(empresaId: string) {
       nombre: documento.data().nombre ?? documento.id,
       tipo: documento.data().tipo,
       estado: documento.data().estado,
+
+      origen: documento.data().origen ?? "manual",
+      fuenteNombre: documento.data().fuenteNombre ?? null,
+      fuenteUrl: documento.data().fuenteUrl ?? null,
+      fechaConsulta: documento.data().fechaConsulta ?? null,
+      estadoValidacion:
+        documento.data().estadoValidacion ?? "pendiente",
     })
   );
 
@@ -155,6 +169,13 @@ export default function DashboardPage() {
   const [editandoCompetidorId, setEditandoCompetidorId] = useState("");
   const [nombreCompetidorEdicion, setNombreCompetidorEdicion] = useState("");
   const [tipoCompetidorEdicion, setTipoCompetidorEdicion] = useState("");
+
+  const [
+    estadoValidacionCompetidorEdicion,
+    setEstadoValidacionCompetidorEdicion,
+  ] = useState<"pendiente" | "validado" | "descartado">(
+    "pendiente"
+  );
   const [accionCompetidorId, setAccionCompetidorId] = useState("");
 
   const [editandoProductoId, setEditandoProductoId] = useState("");
@@ -316,6 +337,13 @@ export default function DashboardPage() {
         tipo,
         empresaId: empresaDestino,
         estado: "activo",
+
+        origen: "manual",
+        fuenteNombre: null,
+        fuenteUrl: null,
+        fechaConsulta: null,
+        estadoValidacion: "pendiente",
+
         creado_en: serverTimestamp(),
       });
 
@@ -498,12 +526,17 @@ export default function DashboardPage() {
     setTipoCompetidorEdicion(
       competidor.tipo ?? "empresa"
     );
+
+    setEstadoValidacionCompetidorEdicion(
+      competidor.estadoValidacion ?? "pendiente"
+    );
   }
 
   function cancelarEdicionCompetidor() {
     setEditandoCompetidorId("");
     setNombreCompetidorEdicion("");
     setTipoCompetidorEdicion("");
+    setEstadoValidacionCompetidorEdicion("pendiente");
   }
 
   async function guardarEdicionCompetidor(
@@ -580,6 +613,7 @@ export default function DashboardPage() {
         {
           nombre,
           tipo,
+          estadoValidacion: estadoValidacionCompetidorEdicion,
           actualizado_en: serverTimestamp(),
         },
         { merge: true }
@@ -1758,6 +1792,8 @@ export default function DashboardPage() {
                       <th>{t("Nombre", "Name")}</th>
                       <th>{t("Tipo", "Type")}</th>
                       <th>{t("Estado", "Status")}</th>
+                      <th>{t("Origen", "Source")}</th>
+                      <th>{t("Validación", "Validation")}</th>
                       {puedeGestionarCompetidores && (
                         <th>{t("Acciones", "Actions")}</th>
                       )}
@@ -1770,7 +1806,7 @@ export default function DashboardPage() {
                         <tr key={competidor.id}>
                           <td
                             colSpan={
-                              puedeGestionarCompetidores ? 4 : 3
+                              puedeGestionarCompetidores ? 6 : 5
                             }
                           >
                             <form
@@ -1799,6 +1835,38 @@ export default function DashboardPage() {
                                     )
                                   }
                                 />
+                              </div>
+
+                              <div>
+                                <label>
+                                  {t("Validación", "Validation")}
+                                </label>
+
+                                <select
+                                  value={
+                                    estadoValidacionCompetidorEdicion
+                                  }
+                                  onChange={(e) =>
+                                    setEstadoValidacionCompetidorEdicion(
+                                      e.target.value as
+                                        | "pendiente"
+                                        | "validado"
+                                        | "descartado"
+                                    )
+                                  }
+                                >
+                                  <option value="pendiente">
+                                    {t("Pendiente", "Pending")}
+                                  </option>
+
+                                  <option value="validado">
+                                    {t("Validado", "Validated")}
+                                  </option>
+
+                                  <option value="descartado">
+                                    {t("Descartado", "Rejected")}
+                                  </option>
+                                </select>
                               </div>
 
                               <div className={styles.inlineActions}>
@@ -1849,6 +1917,65 @@ export default function DashboardPage() {
                                 : competidor.estado === "inactivo"
                                 ? t("Inactivo", "Inactive")
                                 : t("Sin definir", "Not defined")}
+                            </span>
+                          </td>
+
+                          <td className={styles.sourceCell}>
+                            <span
+                              className={
+                                competidor.origen === "web"
+                                  ? styles.sourceBadgeWeb
+                                  : competidor.origen === "integracion"
+                                  ? styles.sourceBadgeIntegration
+                                  : styles.sourceBadgeManual
+                              }
+                            >
+                              {competidor.origen === "web"
+                                ? "WEB"
+                                : competidor.origen === "integracion"
+                                ? t("INTEGRACIÓN", "INTEGRATION")
+                                : t("MANUAL", "MANUAL")}
+                            </span>
+
+                            {competidor.fuenteNombre && (
+                              <span className={styles.sourceName}>
+                                {competidor.fuenteNombre}
+                              </span>
+                            )}
+
+                            {competidor.fechaConsulta && (
+                              <span className={styles.sourceDate}>
+                                {competidor.fechaConsulta}
+                              </span>
+                            )}
+
+                            {competidor.fuenteUrl && (
+                              <a
+                                className={styles.sourceLink}
+                                href={competidor.fuenteUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {t("Ver fuente", "View source")}
+                              </a>
+                            )}
+                          </td>
+
+                          <td>
+                            <span
+                              className={
+                                competidor.estadoValidacion === "validado"
+                                  ? styles.validationApproved
+                                  : competidor.estadoValidacion === "descartado"
+                                  ? styles.validationRejected
+                                  : styles.validationPending
+                              }
+                            >
+                              {competidor.estadoValidacion === "validado"
+                                ? t("Validado", "Validated")
+                                : competidor.estadoValidacion === "descartado"
+                                ? t("Descartado", "Rejected")
+                                : t("Pendiente", "Pending")}
                             </span>
                           </td>
 

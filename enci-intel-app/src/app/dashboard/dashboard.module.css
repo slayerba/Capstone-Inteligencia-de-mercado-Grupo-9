@@ -847,3 +847,33 @@
   font-size: 11px;
   line-height: 1.5;
 }
+
+/* =======================================================
+   VALIDACION DE COMPETIDORES
+   ======================================================= */
+
+.validationApproved,
+.validationRejected,
+.validationPending {
+  display: inline-block;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .25px;
+}
+
+.validationApproved {
+  background: #e7f7f1;
+  color: #087a5b;
+}
+
+.validationPending {
+  background: #fff6df;
+  color: #936514;
+}
+
+.validationRejected {
+  background: #f3f4f5;
+  color: #697278;
+}
