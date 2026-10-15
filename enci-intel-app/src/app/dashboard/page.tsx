@@ -58,6 +58,13 @@ type Producto = {
   precio?: number | null;
   estado?: string;
 
+  moneda?: string | null;
+  presentacionPrecio?: string | null;
+  fuentePrecioNombre?: string | null;
+  fuentePrecioUrl?: string | null;
+  fechaPrecio?: string | null;
+  precioTipo?: string | null;
+
   origen?: "manual" | "web" | "integracion";
   fuenteNombre?: string | null;
   fuenteUrl?: string | null;
@@ -107,6 +114,18 @@ async function obtenerDatosEmpresa(empresaId: string) {
         competidorId: documento.data().competidorId,
         precio: documento.data().precio ?? null,
         estado: documento.data().estado,
+
+        moneda: documento.data().moneda ?? null,
+        presentacionPrecio:
+          documento.data().presentacionPrecio ?? null,
+        fuentePrecioNombre:
+          documento.data().fuentePrecioNombre ?? null,
+        fuentePrecioUrl:
+          documento.data().fuentePrecioUrl ?? null,
+        fechaPrecio:
+          documento.data().fechaPrecio ?? null,
+        precioTipo:
+          documento.data().precioTipo ?? null,
 
         origen: documento.data().origen ?? "manual",
         fuenteNombre: documento.data().fuenteNombre ?? null,
@@ -1316,13 +1335,82 @@ export default function DashboardPage() {
     );
   }
 
-  const competidoresActivos = competidores.filter(
-    (competidor) => competidor.estado === "activo"
+  const competidoresWeb = competidores.filter(
+    (competidor) => competidor.origen === "web"
   ).length;
 
-  const productosActivos = productos.filter(
-    (producto) => producto.estado === "activo"
+  const productosWeb = productos.filter(
+    (producto) => producto.origen === "web"
   ).length;
+
+  const pendientesValidacion = competidores.filter(
+    (competidor) =>
+      (competidor.estadoValidacion ?? "pendiente") === "pendiente"
+  ).length;
+
+  const fuentesWeb = new Set(
+    [...competidores, ...productos]
+      .filter(
+        (registro) =>
+          registro.origen === "web" &&
+          registro.fuenteNombre
+      )
+      .map((registro) => registro.fuenteNombre)
+  ).size;
+
+  const registrosMercado = [
+    ...competidores,
+    ...productos,
+  ];
+
+  const registrosTrazables = registrosMercado.filter(
+    (registro) =>
+      registro.origen === "web" &&
+      Boolean(registro.fuenteUrl) &&
+      Boolean(registro.fechaConsulta)
+  ).length;
+
+  const coberturaTrazabilidad =
+    registrosMercado.length === 0
+      ? 0
+      : Math.round(
+          (registrosTrazables / registrosMercado.length) * 100
+        );
+
+  const fechasConsulta = registrosMercado
+    .map((registro) => registro.fechaConsulta)
+    .filter(
+      (fecha): fecha is string =>
+        Boolean(fecha)
+    )
+    .sort();
+
+  const ultimaConsulta =
+    fechasConsulta.length > 0
+      ? fechasConsulta[fechasConsulta.length - 1]
+      : null;
+
+  const productosConPrecio = productos.filter(
+    (producto) =>
+      typeof producto.precio === "number" &&
+      Number.isFinite(producto.precio)
+  ).length;
+
+  const coberturaPrecios =
+    productos.length === 0
+      ? 0
+      : Math.round(
+          (productosConPrecio / productos.length) * 100
+        );
+
+  const fuentesPrecio = new Set(
+    productos
+      .map((producto) => producto.fuentePrecioNombre)
+      .filter(
+        (fuente): fuente is string =>
+          Boolean(fuente)
+      )
+  ).size;
 
   const textoCompetidor = busquedaCompetidor.trim().toLowerCase();
 
@@ -1560,50 +1648,242 @@ export default function DashboardPage() {
         <section className={styles.metricsGrid}>
           <article className={styles.metricCard}>
             <div className={styles.metricLabel}>
-              {t("Competidores", "Competitors")}
+              {t("Empresas monitoreadas", "Monitored companies")}
             </div>
+
             <div className={styles.metricValue}>
               {competidores.length}
             </div>
+
             <div className={styles.metricSubtext}>
-              {t("Registrados en la empresa actual", "Registered in current company")}
+              {t(
+                `${competidoresWeb} obtenidas desde fuentes web`,
+                `${competidoresWeb} obtained from web sources`
+              )}
             </div>
           </article>
 
           <article className={styles.metricCard}>
             <div className={styles.metricLabel}>
-              {t("Productos", "Products")}
+              {t("Productos detectados", "Detected products")}
             </div>
+
             <div className={styles.metricValue}>
               {productos.length}
             </div>
+
             <div className={styles.metricSubtext}>
-              {t("Productos disponibles", "Available products")}
+              {t(
+                `${productosWeb} con origen web`,
+                `${productosWeb} from web sources`
+              )}
             </div>
           </article>
 
           <article className={styles.metricCard}>
             <div className={styles.metricLabel}>
-              {t("Competidores activos", "Active competitors")}
+              {t("Fuentes web", "Web sources")}
             </div>
+
             <div className={styles.metricValue}>
-              {competidoresActivos}
+              {fuentesWeb}
             </div>
+
             <div className={styles.metricSubtext}>
-              {t("Estado activo", "Active status")}
+              {t(
+                "Fuentes oficiales identificadas",
+                "Official sources identified"
+              )}
             </div>
           </article>
 
           <article className={styles.metricCard}>
             <div className={styles.metricLabel}>
-              {t("Productos activos", "Active products")}
+              {t(
+                "Pendientes de validación",
+                "Pending validation"
+              )}
             </div>
+
             <div className={styles.metricValue}>
-              {productosActivos}
+              {pendientesValidacion}
             </div>
+
             <div className={styles.metricSubtext}>
-              {t("Estado activo", "Active status")}
+              {t(
+                "Requieren validación del negocio",
+                "Require business validation"
+              )}
             </div>
+          </article>
+        </section>
+
+        <section className={styles.intelligenceGrid}>
+          <article className={styles.intelligenceCard}>
+            <div className={styles.intelligenceHeader}>
+              <div>
+                <span className={styles.eyebrow}>
+                  {t(
+                    "Calidad de información",
+                    "Information quality"
+                  )}
+                </span>
+
+                <h2>
+                  {t(
+                    "Cobertura de datos",
+                    "Data coverage"
+                  )}
+                </h2>
+              </div>
+
+              <span className={styles.coverageValue}>
+                {coberturaTrazabilidad}%
+              </span>
+            </div>
+
+            <div className={styles.coverageTrack}>
+              <div
+                className={styles.coverageBar}
+                style={{
+                  width: `${coberturaTrazabilidad}%`,
+                }}
+              />
+            </div>
+
+            <div className={styles.coverageDetails}>
+              <div>
+                <strong>{registrosTrazables}</strong>
+                <span>
+                  {t(
+                    "registros trazables",
+                    "traceable records"
+                  )}
+                </span>
+              </div>
+
+              <div>
+                <strong>{competidoresWeb}</strong>
+                <span>
+                  {t(
+                    "empresas desde web",
+                    "companies from web"
+                  )}
+                </span>
+              </div>
+
+              <div>
+                <strong>{productosWeb}</strong>
+                <span>
+                  {t(
+                    "productos desde web",
+                    "products from web"
+                  )}
+                </span>
+              </div>
+
+              <div>
+                <strong>
+                  {productosConPrecio} / {productos.length}
+                </strong>
+                <span>
+                  {t(
+                    `productos con precio (${coberturaPrecios}%)`,
+                    `products with price (${coberturaPrecios}%)`
+                  )}
+                </span>
+              </div>
+
+              <div>
+                <strong>{fuentesPrecio}</strong>
+                <span>
+                  {t(
+                    "fuentes comerciales de precio",
+                    "commercial price sources"
+                  )}
+                </span>
+              </div>
+
+              <div>
+                <strong>{ultimaConsulta ?? "—"}</strong>
+                <span>
+                  {t(
+                    "última consulta",
+                    "last consultation"
+                  )}
+                </span>
+              </div>
+            </div>
+          </article>
+
+          <article className={styles.intelligenceCard}>
+            <div className={styles.intelligenceHeader}>
+              <div>
+                <span className={styles.eyebrow}>
+                  {t(
+                    "Inteligencia competitiva",
+                    "Competitive intelligence"
+                  )}
+                </span>
+
+                <h2>
+                  {t(
+                    "Empresas monitoreadas",
+                    "Monitored companies"
+                  )}
+                </h2>
+              </div>
+
+              <span className={styles.sectionCount}>
+                {competidores.length}
+              </span>
+            </div>
+
+            {competidores.length === 0 ? (
+              <p className={styles.emptyState}>
+                {t(
+                  "No existen empresas monitoreadas.",
+                  "There are no monitored companies."
+                )}
+              </p>
+            ) : (
+              <div className={styles.monitoredList}>
+                {competidores.map((competidor) => (
+                  <div
+                    key={competidor.id}
+                    className={styles.monitoredRow}
+                  >
+                    <div className={styles.monitoredInfo}>
+                      <strong>{competidor.nombre}</strong>
+
+                      <span>
+                        {competidor.tipo ??
+                          t(
+                            "Sin tipo definido",
+                            "No type defined"
+                          )}
+                      </span>
+                    </div>
+
+                    <span
+                      className={
+                        competidor.estadoValidacion === "validado"
+                          ? styles.validationApproved
+                          : competidor.estadoValidacion === "descartado"
+                          ? styles.validationRejected
+                          : styles.validationPending
+                      }
+                    >
+                      {competidor.estadoValidacion === "validado"
+                        ? t("Validado", "Validated")
+                        : competidor.estadoValidacion === "descartado"
+                        ? t("Descartado", "Rejected")
+                        : t("Pendiente", "Pending")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </article>
         </section>
 
@@ -2680,11 +2960,55 @@ export default function DashboardPage() {
 
                           <td className={styles.priceCell}>
                             {producto.precio === null ||
-                            producto.precio === undefined
-                              ? t("Sin precio", "No price")
-                              : `$${producto.precio.toLocaleString(
-                                  "es-CL"
-                                )}`}
+                            producto.precio === undefined ? (
+                              <span className={styles.noPrice}>
+                                {t(
+                                  "Sin precio público",
+                                  "No public price"
+                                )}
+                              </span>
+                            ) : (
+                              <>
+                                <strong className={styles.priceValue}>
+                                  ${producto.precio.toLocaleString(
+                                    "es-CL"
+                                  )}{" "}
+                                  {producto.moneda ?? "CLP"}
+                                </strong>
+
+                                {producto.presentacionPrecio && (
+                                  <span className={styles.pricePresentation}>
+                                    {producto.presentacionPrecio}
+                                  </span>
+                                )}
+
+                                {producto.fuentePrecioNombre && (
+                                  <span className={styles.priceSource}>
+                                    {producto.fuentePrecioNombre}
+                                  </span>
+                                )}
+
+                                {producto.fechaPrecio && (
+                                  <span className={styles.priceDate}>
+                                    {producto.fechaPrecio}
+                                  </span>
+                                )}
+
+                                {producto.fuentePrecioUrl && (
+                                  <a
+                                    className={styles.priceSourceLink}
+                                    href={producto.fuentePrecioUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    {t(
+                                      "Ver precio",
+                                      "View price"
+                                    )}
+                                  </a>
+                                )}
+                              </>
+                            )}
                           </td>
 
                           <td>
