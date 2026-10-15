@@ -137,6 +137,20 @@ export default function DashboardPage() {
 
   const [nombreCompetidor, setNombreCompetidor] = useState("");
   const [tipoCompetidor, setTipoCompetidor] = useState("empresa");
+
+  const [origenCompetidor, setOrigenCompetidor] = useState<
+    "manual" | "web" | "integracion"
+  >("manual");
+
+  const [fuenteNombreCompetidor, setFuenteNombreCompetidor] =
+    useState("");
+
+  const [fuenteUrlCompetidor, setFuenteUrlCompetidor] =
+    useState("");
+
+  const [fechaConsultaCompetidor, setFechaConsultaCompetidor] =
+    useState("");
+
   const [guardandoCompetidor, setGuardandoCompetidor] = useState(false);
   const [mensajeCompetidor, setMensajeCompetidor] = useState("");
 
@@ -318,6 +332,52 @@ export default function DashboardPage() {
     const nombre = nombreCompetidor.trim();
     const tipo = tipoCompetidor.trim() || "empresa";
 
+    const origen = origenCompetidor;
+
+    const fuenteNombre =
+      fuenteNombreCompetidor.trim() || null;
+
+    const fuenteUrlTexto =
+      fuenteUrlCompetidor.trim();
+
+    const fechaConsulta =
+      fechaConsultaCompetidor.trim() || null;
+
+    let fuenteUrl: string | null = null;
+
+    if (origen === "web" && !fuenteUrlTexto) {
+      setError(
+        t(
+          "Los competidores obtenidos desde la web deben incluir una URL de fuente.",
+          "Competitors obtained from the web must include a source URL."
+        )
+      );
+      return;
+    }
+
+    if (fuenteUrlTexto) {
+      try {
+        const url = new URL(fuenteUrlTexto);
+
+        if (
+          url.protocol !== "http:" &&
+          url.protocol !== "https:"
+        ) {
+          throw new Error("PROTOCOLO_INVALIDO");
+        }
+
+        fuenteUrl = url.toString();
+      } catch {
+        setError(
+          t(
+            "La URL de la fuente no es válida.",
+            "The source URL is not valid."
+          )
+        );
+        return;
+      }
+    }
+
     if (!nombre) {
       setError(t(
         "Debes ingresar el nombre del competidor.",
@@ -338,10 +398,14 @@ export default function DashboardPage() {
         empresaId: empresaDestino,
         estado: "activo",
 
-        origen: "manual",
-        fuenteNombre: null,
-        fuenteUrl: null,
-        fechaConsulta: null,
+        origen,
+        fuenteNombre:
+          origen === "manual" ? null : fuenteNombre,
+        fuenteUrl:
+          origen === "manual" ? null : fuenteUrl,
+        fechaConsulta:
+          origen === "manual" ? null : fechaConsulta,
+
         estadoValidacion: "pendiente",
 
         creado_en: serverTimestamp(),
@@ -354,6 +418,11 @@ export default function DashboardPage() {
 
       setNombreCompetidor("");
       setTipoCompetidor("empresa");
+      setOrigenCompetidor("manual");
+      setFuenteNombreCompetidor("");
+      setFuenteUrlCompetidor("");
+      setFechaConsultaCompetidor("");
+
       setMensajeCompetidor(t(
         "Competidor agregado correctamente.",
         "Competitor added successfully."
@@ -1710,6 +1779,158 @@ export default function DashboardPage() {
                   boxSizing: "border-box",
                 }}
               />
+
+              <label
+                htmlFor="origenCompetidor"
+                style={{ display: "block", marginBottom: "6px" }}
+              >
+                {t("Origen del dato", "Data source")}
+              </label>
+
+              <select
+                id="origenCompetidor"
+                value={origenCompetidor}
+                onChange={(e) =>
+                  setOrigenCompetidor(
+                    e.target.value as
+                      | "manual"
+                      | "web"
+                      | "integracion"
+                  )
+                }
+                disabled={guardandoCompetidor}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  marginBottom: "14px",
+                  border: "1px solid #ccc",
+                  borderRadius: "8px",
+                  boxSizing: "border-box",
+                }}
+              >
+                <option value="manual">
+                  {t("Manual", "Manual")}
+                </option>
+                <option value="web">
+                  Web
+                </option>
+                <option value="integracion">
+                  {t("Integración", "Integration")}
+                </option>
+              </select>
+
+              {origenCompetidor !== "manual" && (
+                <>
+                  <label
+                    htmlFor="fuenteNombreCompetidor"
+                    style={{
+                      display: "block",
+                      marginBottom: "6px",
+                    }}
+                  >
+                    {t("Nombre de la fuente", "Source name")}
+                  </label>
+
+                  <input
+                    id="fuenteNombreCompetidor"
+                    value={fuenteNombreCompetidor}
+                    onChange={(e) =>
+                      setFuenteNombreCompetidor(
+                        e.target.value
+                      )
+                    }
+                    placeholder={t(
+                      "Ej: Sitio oficial Veterquimica",
+                      "E.g. Official Veterquimica website"
+                    )}
+                    disabled={guardandoCompetidor}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      marginBottom: "14px",
+                      border: "1px solid #ccc",
+                      borderRadius: "8px",
+                      boxSizing: "border-box",
+                    }}
+                  />
+
+                  <label
+                    htmlFor="fuenteUrlCompetidor"
+                    style={{
+                      display: "block",
+                      marginBottom: "6px",
+                    }}
+                  >
+                    {t("URL de la fuente", "Source URL")}
+                  </label>
+
+                  <input
+                    id="fuenteUrlCompetidor"
+                    type="url"
+                    value={fuenteUrlCompetidor}
+                    onChange={(e) =>
+                      setFuenteUrlCompetidor(e.target.value)
+                    }
+                    placeholder="https://..."
+                    disabled={guardandoCompetidor}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      marginBottom: "14px",
+                      border: "1px solid #ccc",
+                      borderRadius: "8px",
+                      boxSizing: "border-box",
+                    }}
+                  />
+
+                  <label
+                    htmlFor="fechaConsultaCompetidor"
+                    style={{
+                      display: "block",
+                      marginBottom: "6px",
+                    }}
+                  >
+                    {t(
+                      "Fecha de consulta",
+                      "Consultation date"
+                    )}
+                  </label>
+
+                  <input
+                    id="fechaConsultaCompetidor"
+                    type="date"
+                    value={fechaConsultaCompetidor}
+                    onChange={(e) =>
+                      setFechaConsultaCompetidor(
+                        e.target.value
+                      )
+                    }
+                    disabled={guardandoCompetidor}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      marginBottom: "14px",
+                      border: "1px solid #ccc",
+                      borderRadius: "8px",
+                      boxSizing: "border-box",
+                    }}
+                  />
+
+                  <p
+                    style={{
+                      marginTop: "-4px",
+                      marginBottom: "16px",
+                      color: "#68756f",
+                      fontSize: "12px",
+                    }}
+                  >
+                    {t(
+                      "El registro quedará pendiente hasta que sea validado como competidor.",
+                      "The record will remain pending until it is validated as a competitor."
+                    )}
+                  </p>
+                </>
+              )}
 
               <button
                 type="submit"
