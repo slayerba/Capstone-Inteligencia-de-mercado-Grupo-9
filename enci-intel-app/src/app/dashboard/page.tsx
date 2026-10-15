@@ -21,6 +21,7 @@ import {
   useIdioma,
 } from "@/lib/i18n";
 import { parsearArchivoProductos } from "@/lib/importar-productos";
+import styles from "./dashboard.module.css";
 
 type Perfil = {
   email?: string;
@@ -124,6 +125,22 @@ export default function DashboardPage() {
 
   const [importandoCsv, setImportandoCsv] = useState(false);
   const [mensajeCsv, setMensajeCsv] = useState("");
+
+  const [seccionActiva, setSeccionActiva] = useState<
+    "resumen" | "competidores" | "productos" | "importacion"
+  >("resumen");
+
+  const [busquedaCompetidor, setBusquedaCompetidor] = useState("");
+  const [filtroEstadoCompetidor, setFiltroEstadoCompetidor] =
+    useState("todos");
+  const [paginaCompetidores, setPaginaCompetidores] = useState(1);
+
+  const [busquedaProducto, setBusquedaProducto] = useState("");
+  const [filtroEstadoProducto, setFiltroEstadoProducto] =
+    useState("todos");
+  const [paginaProductos, setPaginaProductos] = useState(1);
+
+  const REGISTROS_POR_PAGINA = 8;
 
   const [editandoCompetidorId, setEditandoCompetidorId] = useState("");
   const [nombreCompetidorEdicion, setNombreCompetidorEdicion] = useState("");
@@ -1174,6 +1191,80 @@ export default function DashboardPage() {
     );
   }
 
+  const competidoresActivos = competidores.filter(
+    (competidor) => competidor.estado === "activo"
+  ).length;
+
+  const productosActivos = productos.filter(
+    (producto) => producto.estado === "activo"
+  ).length;
+
+  const textoCompetidor = busquedaCompetidor.trim().toLowerCase();
+
+  const competidoresFiltrados = competidores.filter((competidor) => {
+    const coincideBusqueda =
+      !textoCompetidor ||
+      competidor.nombre.toLowerCase().includes(textoCompetidor) ||
+      (competidor.tipo ?? "").toLowerCase().includes(textoCompetidor);
+
+    const coincideEstado =
+      filtroEstadoCompetidor === "todos" ||
+      competidor.estado === filtroEstadoCompetidor;
+
+    return coincideBusqueda && coincideEstado;
+  });
+
+  const totalPaginasCompetidores = Math.max(
+    1,
+    Math.ceil(competidoresFiltrados.length / REGISTROS_POR_PAGINA)
+  );
+
+  const paginaCompetidoresActual = Math.min(
+    paginaCompetidores,
+    totalPaginasCompetidores
+  );
+
+  const competidoresPagina = competidoresFiltrados.slice(
+    (paginaCompetidoresActual - 1) * REGISTROS_POR_PAGINA,
+    paginaCompetidoresActual * REGISTROS_POR_PAGINA
+  );
+
+  const textoProducto = busquedaProducto.trim().toLowerCase();
+
+  const productosFiltrados = productos.filter((producto) => {
+    const nombreCompetidor =
+      competidores.find(
+        (competidor) => competidor.id === producto.competidorId
+      )?.nombre ?? "";
+
+    const coincideBusqueda =
+      !textoProducto ||
+      producto.nombre.toLowerCase().includes(textoProducto) ||
+      (producto.categoria ?? "").toLowerCase().includes(textoProducto) ||
+      nombreCompetidor.toLowerCase().includes(textoProducto);
+
+    const coincideEstado =
+      filtroEstadoProducto === "todos" ||
+      producto.estado === filtroEstadoProducto;
+
+    return coincideBusqueda && coincideEstado;
+  });
+
+  const totalPaginasProductos = Math.max(
+    1,
+    Math.ceil(productosFiltrados.length / REGISTROS_POR_PAGINA)
+  );
+
+  const paginaProductosActual = Math.min(
+    paginaProductos,
+    totalPaginasProductos
+  );
+
+  const productosPagina = productosFiltrados.slice(
+    (paginaProductosActual - 1) * REGISTROS_POR_PAGINA,
+    paginaProductosActual * REGISTROS_POR_PAGINA
+  );
+
   const tarjeta = {
     background: "#fff",
     padding: "24px",
@@ -1183,6 +1274,7 @@ export default function DashboardPage() {
 
   return (
     <main
+      className={styles.dashboardShell}
       style={{
         minHeight: "100vh",
         background: "#f5f6f8",
@@ -1190,8 +1282,12 @@ export default function DashboardPage() {
         fontFamily: "Arial, sans-serif",
       }}
     >
-      <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
+      <div
+        className={styles.dashboardContainer}
+        style={{ maxWidth: "1100px", margin: "0 auto" }}
+      >
         <header
+          className={styles.topbar}
           style={{
             display: "flex",
             justifyContent: "space-between",
@@ -1236,7 +1332,157 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        <section style={tarjeta}>
+        <div className={styles.workspace}>
+          <aside className={styles.sidebar}>
+            <div className={styles.sidebarBrand}>
+              <span>ENCI-INTEL</span>
+            </div>
+
+            <div className={styles.sidebarTitle}>
+              {t("Navegación", "Navigation")}
+            </div>
+
+            <button
+              type="button"
+              className={
+                seccionActiva === "resumen"
+                  ? styles.navButtonActive
+                  : styles.navButton
+              }
+              onClick={() => setSeccionActiva("resumen")}
+            >
+              {t("Resumen", "Overview")}
+            </button>
+
+            <button
+              type="button"
+              className={
+                seccionActiva === "competidores"
+                  ? styles.navButtonActive
+                  : styles.navButton
+              }
+              onClick={() => setSeccionActiva("competidores")}
+            >
+              {t("Competidores", "Competitors")}
+              <span className={styles.navCounter}>
+                {competidores.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              className={
+                seccionActiva === "productos"
+                  ? styles.navButtonActive
+                  : styles.navButton
+              }
+              onClick={() => setSeccionActiva("productos")}
+            >
+              {t("Productos", "Products")}
+              <span className={styles.navCounter}>
+                {productos.length}
+              </span>
+            </button>
+
+            {puedeGestionarProductos && (
+              <button
+                type="button"
+                className={
+                  seccionActiva === "importacion"
+                    ? styles.navButtonActive
+                    : styles.navButton
+                }
+                onClick={() => setSeccionActiva("importacion")}
+              >
+                {t("Importación", "Import")}
+              </button>
+            )}
+
+            <div className={styles.sidebarInfo}>
+              <span>{t("Empresa actual", "Current company")}</span>
+              <strong>
+                {esSuperadmin
+                  ? empresaSeleccionada ||
+                    t("Sin seleccionar", "Not selected")
+                  : perfil?.empresaId}
+              </strong>
+
+              <span>{t("Rol", "Role")}</span>
+              <strong>{perfil?.rol}</strong>
+            </div>
+          </aside>
+
+          <div className={styles.contentArea}>
+
+            {error && (
+              <section
+                className={styles.errorCard}
+                style={{
+                  ...tarjeta,
+                  background: "#fff3f3",
+                }}
+              >
+                {error}
+              </section>
+            )}
+
+            {seccionActiva === "resumen" && (
+              <>
+
+        <section className={styles.metricsGrid}>
+          <article className={styles.metricCard}>
+            <div className={styles.metricLabel}>
+              {t("Competidores", "Competitors")}
+            </div>
+            <div className={styles.metricValue}>
+              {competidores.length}
+            </div>
+            <div className={styles.metricSubtext}>
+              {t("Registrados en la empresa actual", "Registered in current company")}
+            </div>
+          </article>
+
+          <article className={styles.metricCard}>
+            <div className={styles.metricLabel}>
+              {t("Productos", "Products")}
+            </div>
+            <div className={styles.metricValue}>
+              {productos.length}
+            </div>
+            <div className={styles.metricSubtext}>
+              {t("Productos disponibles", "Available products")}
+            </div>
+          </article>
+
+          <article className={styles.metricCard}>
+            <div className={styles.metricLabel}>
+              {t("Competidores activos", "Active competitors")}
+            </div>
+            <div className={styles.metricValue}>
+              {competidoresActivos}
+            </div>
+            <div className={styles.metricSubtext}>
+              {t("Estado activo", "Active status")}
+            </div>
+          </article>
+
+          <article className={styles.metricCard}>
+            <div className={styles.metricLabel}>
+              {t("Productos activos", "Active products")}
+            </div>
+            <div className={styles.metricValue}>
+              {productosActivos}
+            </div>
+            <div className={styles.metricSubtext}>
+              {t("Estado activo", "Active status")}
+            </div>
+          </article>
+        </section>
+
+        <section
+          className={styles.sessionCard}
+          style={tarjeta}
+        >
           <h2>{t("Sesión activa", "Active session")}</h2>
           <p><strong>{t("Usuario", "User")}:</strong> {usuario?.email}</p>
           <p>
@@ -1307,21 +1553,39 @@ export default function DashboardPage() {
           </section>
         )}
 
-        {error && (
-          <section style={{ ...tarjeta, background: "#fff3f3" }}>
-            {error}
-          </section>
-        )}
+              </>
+            )}
 
-        <section style={tarjeta}>
-          <h2>
-            {t("Competidores", "Competitors")}
-            {esSuperadmin && empresaSeleccionada
-              ? ` de ${empresaSeleccionada}`
-              : ""}
-          </h2>
+            {seccionActiva === "competidores" && (
+        <section
+          className={styles.sectionCard}
+          style={tarjeta}
+        >
+          <div className={styles.sectionHeader}>
+            <div>
+              <span className={styles.eyebrow}>
+                {t("Gestión", "Management")}
+              </span>
+              <h2>
+                    {t("Competidores", "Competitors")}
+                {esSuperadmin && empresaSeleccionada
+                  ? ` de ${empresaSeleccionada}`
+                  : ""}
+              </h2>
+            </div>
+
+            <span className={styles.sectionCount}>
+              {competidores.length}{" "}
+              {t("registros", "records")}
+            </span>
+          </div>
 
           {puedeGestionarCompetidores && (
+            <details className={styles.managementPanel}>
+              <summary className={styles.managementSummary}>
+                {t("+ Nuevo competidor", "+ New competitor")}
+              </summary>
+
             <form
               onSubmit={crearCompetidor}
               style={{
@@ -1412,322 +1676,290 @@ export default function DashboardPage() {
                 </p>
               )}
             </form>
+            </details>
           )}
 
-          {cargandoDatos ? (
-            <p>{t("Cargando...", "Loading...")}</p>
-          ) : competidores.length === 0 ? (
-            <p>{t(
-              "No existen competidores asociados a esta empresa.",
-              "There are no competitors associated with this company."
-            )}</p>
-          ) : (
-            competidores.map((competidor) => (
-              <div
-                key={competidor.id}
-                style={{
-                  borderTop: "1px solid #eee",
-                  padding: "14px 0",
-                }}
-              >
-                {editandoCompetidorId ===
-                competidor.id ? (
-                  <form
-                    onSubmit={
-                      guardarEdicionCompetidor
-                    }
-                    style={{
-                      padding: "14px",
-                      border:
-                        "1px solid #e5e5e5",
-                      borderRadius: "8px",
-                      background: "#fafafa",
-                    }}
-                  >
-                    <strong>
-                      {t(
-                        "Editar competidor",
-                        "Edit competitor"
-                      )}
-                    </strong>
+          <div className={styles.toolbar}>
+            <input
+              className={styles.searchInput}
+              value={busquedaCompetidor}
+              onChange={(e) => {
+                setBusquedaCompetidor(e.target.value);
+                setPaginaCompetidores(1);
+              }}
+              placeholder={t(
+                "Buscar competidor...",
+                "Search competitor..."
+              )}
+            />
 
-                    <input
-                      value={
-                        nombreCompetidorEdicion
-                      }
-                      onChange={(e) =>
-                        setNombreCompetidorEdicion(
-                          e.target.value
-                        )
-                      }
-                      style={{
-                        width: "100%",
-                        marginTop: "12px",
-                        padding: "10px",
-                        border:
-                          "1px solid #ccc",
-                        borderRadius: "8px",
-                        boxSizing:
-                          "border-box",
-                      }}
-                    />
-
-                    <input
-                      value={
-                        tipoCompetidorEdicion
-                      }
-                      onChange={(e) =>
-                        setTipoCompetidorEdicion(
-                          e.target.value
-                        )
-                      }
-                      style={{
-                        width: "100%",
-                        marginTop: "10px",
-                        padding: "10px",
-                        border:
-                          "1px solid #ccc",
-                        borderRadius: "8px",
-                        boxSizing:
-                          "border-box",
-                      }}
-                    />
-
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "8px",
-                        marginTop: "12px",
-                      }}
-                    >
-                      <button
-                        type="submit"
-                        disabled={
-                          accionCompetidorId ===
-                          competidor.id
-                        }
-                      >
-                        {t("Guardar", "Save")}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={
-                          cancelarEdicionCompetidor
-                        }
-                      >
-                        {t(
-                          "Cancelar",
-                          "Cancel"
-                        )}
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  <>
-                    <strong>
-                      {competidor.nombre}
-                    </strong>
-
-                    <div>
-                      {t("Tipo", "Type")}:{" "}
-                      {competidor.tipo ??
-                        t(
-                          "Sin definir",
-                          "Not defined"
-                        )}
-                    </div>
-
-                    <div>
-                      {t(
-                        "Estado",
-                        "Status"
-                      )}
-                      :{" "}
-                      {competidor.estado ===
-                      "activo"
-                        ? t(
-                            "activo",
-                            "active"
-                          )
-                        : competidor.estado ===
-                          "inactivo"
-                        ? t(
-                            "inactivo",
-                            "inactive"
-                          )
-                        : t(
-                            "Sin definir",
-                            "Not defined"
-                          )}
-                    </div>
-
-                    {puedeGestionarCompetidores && (
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: "8px",
-                          marginTop: "10px",
-                        }}
-                      >
-                        <button
-                          type="button"
-                          onClick={() =>
-                            iniciarEdicionCompetidor(
-                              competidor
-                            )
-                          }
-                        >
-                          {t(
-                            "Editar",
-                            "Edit"
-                          )}
-                        </button>
-
-                        <button
-                          type="button"
-                          disabled={
-                            accionCompetidorId ===
-                            competidor.id
-                          }
-                          onClick={() =>
-                            cambiarEstadoCompetidor(
-                              competidor
-                            )
-                          }
-                        >
-                          {competidor.estado ===
-                          "inactivo"
-                            ? t(
-                                "Reactivar",
-                                "Reactivate"
-                              )
-                            : t(
-                                "Desactivar",
-                                "Deactivate"
-                              )}
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            ))
-          )}
-        </section>
-
-        <section style={{ ...tarjeta, marginBottom: 0 }}>
-          <h2>{t("Productos", "Products")}</h2>
-
-          {puedeGestionarProductos && (
-            <div
-              style={{
-                padding: "18px",
-                marginBottom: "22px",
-                border: "1px solid #d8e2ec",
-                borderRadius: "10px",
-                background: "#f7fbff",
+            <select
+              className={styles.filterSelect}
+              value={filtroEstadoCompetidor}
+              onChange={(e) => {
+                setFiltroEstadoCompetidor(e.target.value);
+                setPaginaCompetidores(1);
               }}
             >
-              <h3 style={{ marginTop: 0 }}>
-                {t(
-                  "Importar productos por archivo",
-                  "Import products from file"
-                )}
-              </h3>
+              <option value="todos">
+                {t("Todos los estados", "All statuses")}
+              </option>
+              <option value="activo">
+                {t("Activos", "Active")}
+              </option>
+              <option value="inactivo">
+                {t("Inactivos", "Inactive")}
+              </option>
+            </select>
+          </div>
 
-              <p style={{ color: "#666", lineHeight: 1.5 }}>
-                {t(
-                  "Carga masiva mediante Firestore Batch. Se admiten archivos CSV, Excel XLSX y JSON. El archivo se valida completamente antes de escribir y solo puede utilizar competidores de la empresa actual.",
-                  "Bulk upload using Firestore Batch. CSV, Excel XLSX and JSON files are supported. The file is fully validated before writing and can only use competitors from the current company."
-                )}
-              </p>
+          {cargandoDatos ? (
+            <p className={styles.emptyState}>
+              {t("Cargando...", "Loading...")}
+            </p>
+          ) : competidoresFiltrados.length === 0 ? (
+            <p className={styles.emptyState}>
+              {t(
+                "No se encontraron competidores.",
+                "No competitors were found."
+              )}
+            </p>
+          ) : (
+            <>
+              <div className={styles.tableWrap}>
+                <table className={styles.dataTable}>
+                  <thead>
+                    <tr>
+                      <th>{t("Nombre", "Name")}</th>
+                      <th>{t("Tipo", "Type")}</th>
+                      <th>{t("Estado", "Status")}</th>
+                      {puedeGestionarCompetidores && (
+                        <th>{t("Acciones", "Actions")}</th>
+                      )}
+                    </tr>
+                  </thead>
 
-              <p style={{ color: "#666", lineHeight: 1.5 }}>
-                {t(
-                  "Columnas requeridas:",
-                  "Required fields:"
-                )}
-                <br />
-                <code>
-                  {idioma === "es"
-                    ? "nombre,categoria,precio,competidorId,estado"
-                    : "name,category,price,competitorId,status"}
-                </code>
-              </p>
+                  <tbody>
+                    {competidoresPagina.map((competidor) =>
+                      editandoCompetidorId === competidor.id ? (
+                        <tr key={competidor.id}>
+                          <td
+                            colSpan={
+                              puedeGestionarCompetidores ? 4 : 3
+                            }
+                          >
+                            <form
+                              className={styles.inlineEdit}
+                              onSubmit={guardarEdicionCompetidor}
+                            >
+                              <div>
+                                <label>{t("Nombre", "Name")}</label>
+                                <input
+                                  value={nombreCompetidorEdicion}
+                                  onChange={(e) =>
+                                    setNombreCompetidorEdicion(
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                              </div>
 
-              <p style={{ color: "#666" }}>
-                {t(
-                  "Máximo: 450 productos por archivo.",
-                  "Maximum: 450 products per file."
-                )}
-              </p>
+                              <div>
+                                <label>{t("Tipo", "Type")}</label>
+                                <input
+                                  value={tipoCompetidorEdicion}
+                                  onChange={(e) =>
+                                    setTipoCompetidorEdicion(
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                              </div>
 
-              <a
-                href="/ejemplos/productos-batch.csv"
-                download
-                style={{
-                  display: "inline-block",
-                  marginBottom: "14px",
-                }}
-              >
-                {t(
-                  "Descargar CSV sintético de ejemplo",
-                  "Download synthetic CSV example"
-                )}
-              </a>
+                              <div className={styles.inlineActions}>
+                                <button
+                                  className={styles.primaryButton}
+                                  type="submit"
+                                  disabled={
+                                    accionCompetidorId === competidor.id
+                                  }
+                                >
+                                  {t("Guardar", "Save")}
+                                </button>
 
-              <span style={{ margin: "0 8px" }}>|</span>
+                                <button
+                                  className={styles.secondaryButton}
+                                  type="button"
+                                  onClick={cancelarEdicionCompetidor}
+                                >
+                                  {t("Cancelar", "Cancel")}
+                                </button>
+                              </div>
+                            </form>
+                          </td>
+                        </tr>
+                      ) : (
+                        <tr key={competidor.id}>
+                          <td className={styles.nameCell}>
+                            {competidor.nombre}
+                          </td>
 
-              <a
-                href="/ejemplos/productos-batch.json"
-                download
-                style={{
-                  display: "inline-block",
-                  marginBottom: "14px",
-                }}
-              >
-                {t(
-                  "Descargar JSON sintético de ejemplo",
-                  "Download synthetic JSON example"
-                )}
-              </a>
+                          <td>
+                            {competidor.tipo ??
+                              t("Sin definir", "Not defined")}
+                          </td>
 
-              <div>
-                <input
-                  type="file"
-                  accept=".csv,.xlsx,.json,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                  onChange={importarProductosArchivo}
-                  disabled={
-                    importandoCsv || competidores.length === 0
-                  }
-                />
+                          <td>
+                            <span
+                              className={
+                                competidor.estado === "activo"
+                                  ? styles.badgeActive
+                                  : competidor.estado === "inactivo"
+                                  ? styles.badgeInactive
+                                  : styles.badgeNeutral
+                              }
+                            >
+                              {competidor.estado === "activo"
+                                ? t("Activo", "Active")
+                                : competidor.estado === "inactivo"
+                                ? t("Inactivo", "Inactive")
+                                : t("Sin definir", "Not defined")}
+                            </span>
+                          </td>
+
+                          {puedeGestionarCompetidores && (
+                            <td>
+                              <div className={styles.actions}>
+                                <button
+                                  className={styles.secondaryButton}
+                                  type="button"
+                                  onClick={() =>
+                                    iniciarEdicionCompetidor(
+                                      competidor
+                                    )
+                                  }
+                                >
+                                  {t("Editar", "Edit")}
+                                </button>
+
+                                <button
+                                  className={
+                                    competidor.estado === "inactivo"
+                                      ? styles.reactivateButton
+                                      : styles.dangerButton
+                                  }
+                                  type="button"
+                                  disabled={
+                                    accionCompetidorId === competidor.id
+                                  }
+                                  onClick={() =>
+                                    cambiarEstadoCompetidor(
+                                      competidor
+                                    )
+                                  }
+                                >
+                                  {competidor.estado === "inactivo"
+                                    ? t("Reactivar", "Reactivate")
+                                    : t("Desactivar", "Deactivate")}
+                                </button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      )
+                    )}
+                  </tbody>
+                </table>
               </div>
 
-              {importandoCsv && (
-                <p style={{ color: "#666" }}>
-                  {t(
-                    "Validando y cargando productos...",
-                    "Validating and uploading products..."
-                  )}
-                </p>
-              )}
+              <div className={styles.pagination}>
+                <span>
+                  {t("Mostrando", "Showing")}{" "}
+                  {(paginaCompetidoresActual - 1) *
+                    REGISTROS_POR_PAGINA +
+                    1}
+                  –
+                  {Math.min(
+                    paginaCompetidoresActual *
+                      REGISTROS_POR_PAGINA,
+                    competidoresFiltrados.length
+                  )}{" "}
+                  {t("de", "of")}{" "}
+                  {competidoresFiltrados.length}
+                </span>
 
-              {mensajeCsv && (
-                <p
-                  style={{
-                    marginBottom: 0,
-                    color: "#176b35",
-                    fontWeight: 600,
-                  }}
-                >
-                  {mensajeCsv}
-                </p>
-              )}
-            </div>
+                <div className={styles.paginationControls}>
+                  <button
+                    type="button"
+                    disabled={paginaCompetidoresActual <= 1}
+                    onClick={() =>
+                      setPaginaCompetidores(
+                        Math.max(
+                          1,
+                          paginaCompetidoresActual - 1
+                        )
+                      )
+                    }
+                  >
+                    {t("Anterior", "Previous")}
+                  </button>
+
+                  <strong>
+                    {paginaCompetidoresActual} /{" "}
+                    {totalPaginasCompetidores}
+                  </strong>
+
+                  <button
+                    type="button"
+                    disabled={
+                      paginaCompetidoresActual >=
+                      totalPaginasCompetidores
+                    }
+                    onClick={() =>
+                      setPaginaCompetidores(
+                        Math.min(
+                          totalPaginasCompetidores,
+                          paginaCompetidoresActual + 1
+                        )
+                      )
+                    }
+                  >
+                    {t("Siguiente", "Next")}
+                  </button>
+                </div>
+              </div>
+            </>
           )}
+        </section>
+            )}
+
+            {seccionActiva === "productos" && (
+        <section
+          className={styles.sectionCard}
+          style={{ ...tarjeta, marginBottom: 0 }}
+        >
+          <div className={styles.sectionHeader}>
+            <div>
+              <span className={styles.eyebrow}>
+                {t("Catálogo", "Catalog")}
+              </span>
+              <h2>{t("Productos", "Products")}</h2>
+            </div>
+
+            <span className={styles.sectionCount}>
+              {productos.length}{" "}
+              {t("registros", "records")}
+            </span>
+          </div>
+
+
 
           {puedeGestionarProductos && (
+            <details className={styles.managementPanel}>
+              <summary className={styles.managementSummary}>
+                {t("+ Nuevo producto", "+ New product")}
+              </summary>
+
             <form
               onSubmit={crearProducto}
               style={{
@@ -1895,312 +2127,467 @@ export default function DashboardPage() {
                 </p>
               )}
             </form>
+            </details>
           )}
+
+          <div className={styles.toolbar}>
+            <input
+              className={styles.searchInput}
+              value={busquedaProducto}
+              onChange={(e) => {
+                setBusquedaProducto(e.target.value);
+                setPaginaProductos(1);
+              }}
+              placeholder={t(
+                "Buscar producto...",
+                "Search product..."
+              )}
+            />
+
+            <select
+              className={styles.filterSelect}
+              value={filtroEstadoProducto}
+              onChange={(e) => {
+                setFiltroEstadoProducto(e.target.value);
+                setPaginaProductos(1);
+              }}
+            >
+              <option value="todos">
+                {t("Todos los estados", "All statuses")}
+              </option>
+              <option value="activo">
+                {t("Activos", "Active")}
+              </option>
+              <option value="inactivo">
+                {t("Inactivos", "Inactive")}
+              </option>
+            </select>
+          </div>
 
           {cargandoDatos ? (
-            <p>{t("Cargando...", "Loading...")}</p>
-          ) : productos.length === 0 ? (
-            <p>{t(
-              "No existen productos asociados a los competidores de esta empresa.",
-              "There are no products associated with this company's competitors."
-            )}</p>
+            <p className={styles.emptyState}>
+              {t("Cargando...", "Loading...")}
+            </p>
+          ) : productosFiltrados.length === 0 ? (
+            <p className={styles.emptyState}>
+              {t(
+                "No se encontraron productos.",
+                "No products were found."
+              )}
+            </p>
           ) : (
-            productos.map((producto) => (
-              <div
-                key={producto.id}
-                style={{
-                  borderTop: "1px solid #eee",
-                  padding: "14px 0",
-                }}
-              >
-                {editandoProductoId ===
-                producto.id ? (
-                  <form
-                    onSubmit={
-                      guardarEdicionProducto
-                    }
-                    style={{
-                      padding: "14px",
-                      border:
-                        "1px solid #e5e5e5",
-                      borderRadius: "8px",
-                      background: "#fafafa",
-                    }}
-                  >
-                    <strong>
-                      {t(
-                        "Editar producto",
-                        "Edit product"
+            <>
+              <div className={styles.tableWrap}>
+                <table className={styles.dataTable}>
+                  <thead>
+                    <tr>
+                      <th>{t("Nombre", "Name")}</th>
+                      <th>{t("Categoría", "Category")}</th>
+                      <th>{t("Precio", "Price")}</th>
+                      <th>{t("Competidor", "Competitor")}</th>
+                      <th>{t("Estado", "Status")}</th>
+                      {puedeGestionarProductos && (
+                        <th>{t("Acciones", "Actions")}</th>
                       )}
-                    </strong>
+                    </tr>
+                  </thead>
 
-                    <input
-                      value={
-                        nombreProductoEdicion
-                      }
-                      onChange={(e) =>
-                        setNombreProductoEdicion(
-                          e.target.value
-                        )
-                      }
-                      style={{
-                        width: "100%",
-                        marginTop: "12px",
-                        padding: "10px",
-                        border:
-                          "1px solid #ccc",
-                        borderRadius: "8px",
-                        boxSizing:
-                          "border-box",
-                      }}
-                    />
-
-                    <input
-                      value={
-                        categoriaProductoEdicion
-                      }
-                      onChange={(e) =>
-                        setCategoriaProductoEdicion(
-                          e.target.value
-                        )
-                      }
-                      style={{
-                        width: "100%",
-                        marginTop: "10px",
-                        padding: "10px",
-                        border:
-                          "1px solid #ccc",
-                        borderRadius: "8px",
-                        boxSizing:
-                          "border-box",
-                      }}
-                    />
-
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={
-                        precioProductoEdicion
-                      }
-                      onChange={(e) =>
-                        setPrecioProductoEdicion(
-                          e.target.value
-                        )
-                      }
-                      placeholder={t(
-                        "Precio opcional",
-                        "Optional price"
-                      )}
-                      style={{
-                        width: "100%",
-                        marginTop: "10px",
-                        padding: "10px",
-                        border:
-                          "1px solid #ccc",
-                        borderRadius: "8px",
-                        boxSizing:
-                          "border-box",
-                      }}
-                    />
-
-                    <select
-                      value={
-                        competidorProductoEdicion
-                      }
-                      onChange={(e) =>
-                        setCompetidorProductoEdicion(
-                          e.target.value
-                        )
-                      }
-                      style={{
-                        width: "100%",
-                        marginTop: "10px",
-                        padding: "10px",
-                        border:
-                          "1px solid #ccc",
-                        borderRadius: "8px",
-                        boxSizing:
-                          "border-box",
-                      }}
-                    >
-                      {competidores.map(
-                        (competidor) => (
-                          <option
-                            key={
-                              competidor.id
-                            }
-                            value={
-                              competidor.id
+                  <tbody>
+                    {productosPagina.map((producto) =>
+                      editandoProductoId === producto.id ? (
+                        <tr key={producto.id}>
+                          <td
+                            colSpan={
+                              puedeGestionarProductos ? 6 : 5
                             }
                           >
-                            {
-                              competidor.nombre
-                            }
-                          </option>
-                        )
-                      )}
-                    </select>
+                            <form
+                              className={styles.inlineEditProduct}
+                              onSubmit={guardarEdicionProducto}
+                            >
+                              <div>
+                                <label>{t("Nombre", "Name")}</label>
+                                <input
+                                  value={nombreProductoEdicion}
+                                  onChange={(e) =>
+                                    setNombreProductoEdicion(
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                              </div>
 
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "8px",
-                        marginTop: "12px",
-                      }}
-                    >
-                      <button
-                        type="submit"
-                        disabled={
-                          accionProductoId ===
-                          producto.id
-                        }
-                      >
-                        {t("Guardar", "Save")}
-                      </button>
+                              <div>
+                                <label>
+                                  {t("Categoría", "Category")}
+                                </label>
+                                <input
+                                  value={categoriaProductoEdicion}
+                                  onChange={(e) =>
+                                    setCategoriaProductoEdicion(
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                              </div>
 
-                      <button
-                        type="button"
-                        onClick={
-                          cancelarEdicionProducto
-                        }
-                      >
-                        {t(
-                          "Cancelar",
-                          "Cancel"
-                        )}
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  <>
-                    <strong>
-                      {producto.nombre}
-                    </strong>
+                              <div>
+                                <label>{t("Precio", "Price")}</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  value={precioProductoEdicion}
+                                  onChange={(e) =>
+                                    setPrecioProductoEdicion(
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                              </div>
 
-                    <div>
-                      {t(
-                        "Categoría",
-                        "Category"
-                      )}
-                      :{" "}
-                      {producto.categoria ??
-                        t(
-                          "Sin definir",
-                          "Not defined"
-                        )}
-                    </div>
+                              <div>
+                                <label>
+                                  {t("Competidor", "Competitor")}
+                                </label>
+                                <select
+                                  value={competidorProductoEdicion}
+                                  onChange={(e) =>
+                                    setCompetidorProductoEdicion(
+                                      e.target.value
+                                    )
+                                  }
+                                >
+                                  {competidores.map(
+                                    (competidor) => (
+                                      <option
+                                        key={competidor.id}
+                                        value={competidor.id}
+                                      >
+                                        {competidor.nombre}
+                                      </option>
+                                    )
+                                  )}
+                                </select>
+                              </div>
 
-                    <div>
-                      {t(
-                        "Precio",
-                        "Price"
-                      )}
-                      :{" "}
-                      {producto.precio ===
-                        null ||
-                      producto.precio ===
-                        undefined
-                        ? t(
-                            "Sin precio",
-                            "No price"
-                          )
-                        : `$${producto.precio.toLocaleString(
-                            "es-CL"
-                          )}`}
-                    </div>
+                              <div className={styles.inlineActions}>
+                                <button
+                                  className={styles.primaryButton}
+                                  type="submit"
+                                  disabled={
+                                    accionProductoId === producto.id
+                                  }
+                                >
+                                  {t("Guardar", "Save")}
+                                </button>
 
-                    <div>
-                      {t(
-                        "Competidor",
-                        "Competitor"
-                      )}
-                      :{" "}
-                      {competidores.find(
-                        (competidor) =>
-                          competidor.id ===
-                          producto.competidorId
-                      )?.nombre ??
-                        producto.competidorId}
-                    </div>
+                                <button
+                                  className={styles.secondaryButton}
+                                  type="button"
+                                  onClick={cancelarEdicionProducto}
+                                >
+                                  {t("Cancelar", "Cancel")}
+                                </button>
+                              </div>
+                            </form>
+                          </td>
+                        </tr>
+                      ) : (
+                        <tr key={producto.id}>
+                          <td className={styles.nameCell}>
+                            {producto.nombre}
+                          </td>
 
-                    <div>
-                      {t(
-                        "Estado",
-                        "Status"
-                      )}
-                      :{" "}
-                      {producto.estado ===
-                      "activo"
-                        ? t(
-                            "activo",
-                            "active"
-                          )
-                        : producto.estado ===
-                          "inactivo"
-                        ? t(
-                            "inactivo",
-                            "inactive"
-                          )
-                        : t(
-                            "Sin definir",
-                            "Not defined"
+                          <td>
+                            {producto.categoria ??
+                              t("Sin definir", "Not defined")}
+                          </td>
+
+                          <td className={styles.priceCell}>
+                            {producto.precio === null ||
+                            producto.precio === undefined
+                              ? t("Sin precio", "No price")
+                              : `$${producto.precio.toLocaleString(
+                                  "es-CL"
+                                )}`}
+                          </td>
+
+                          <td>
+                            {competidores.find(
+                              (competidor) =>
+                                competidor.id ===
+                                producto.competidorId
+                            )?.nombre ?? producto.competidorId}
+                          </td>
+
+                          <td>
+                            <span
+                              className={
+                                producto.estado === "activo"
+                                  ? styles.badgeActive
+                                  : producto.estado === "inactivo"
+                                  ? styles.badgeInactive
+                                  : styles.badgeNeutral
+                              }
+                            >
+                              {producto.estado === "activo"
+                                ? t("Activo", "Active")
+                                : producto.estado === "inactivo"
+                                ? t("Inactivo", "Inactive")
+                                : t("Sin definir", "Not defined")}
+                            </span>
+                          </td>
+
+                          {puedeGestionarProductos && (
+                            <td>
+                              <div className={styles.actions}>
+                                <button
+                                  className={styles.secondaryButton}
+                                  type="button"
+                                  onClick={() =>
+                                    iniciarEdicionProducto(producto)
+                                  }
+                                >
+                                  {t("Editar", "Edit")}
+                                </button>
+
+                                <button
+                                  className={
+                                    producto.estado === "inactivo"
+                                      ? styles.reactivateButton
+                                      : styles.dangerButton
+                                  }
+                                  type="button"
+                                  disabled={
+                                    accionProductoId === producto.id
+                                  }
+                                  onClick={() =>
+                                    cambiarEstadoProducto(producto)
+                                  }
+                                >
+                                  {producto.estado === "inactivo"
+                                    ? t("Reactivar", "Reactivate")
+                                    : t("Desactivar", "Deactivate")}
+                                </button>
+                              </div>
+                            </td>
                           )}
-                    </div>
-
-                    {puedeGestionarProductos && (
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: "8px",
-                          marginTop: "10px",
-                        }}
-                      >
-                        <button
-                          type="button"
-                          onClick={() =>
-                            iniciarEdicionProducto(
-                              producto
-                            )
-                          }
-                        >
-                          {t(
-                            "Editar",
-                            "Edit"
-                          )}
-                        </button>
-
-                        <button
-                          type="button"
-                          disabled={
-                            accionProductoId ===
-                            producto.id
-                          }
-                          onClick={() =>
-                            cambiarEstadoProducto(
-                              producto
-                            )
-                          }
-                        >
-                          {producto.estado ===
-                          "inactivo"
-                            ? t(
-                                "Reactivar",
-                                "Reactivate"
-                              )
-                            : t(
-                                "Desactivar",
-                                "Deactivate"
-                              )}
-                        </button>
-                      </div>
+                        </tr>
+                      )
                     )}
-                  </>
-                )}
+                  </tbody>
+                </table>
               </div>
-            ))
+
+              <div className={styles.pagination}>
+                <span>
+                  {t("Mostrando", "Showing")}{" "}
+                  {(paginaProductosActual - 1) *
+                    REGISTROS_POR_PAGINA +
+                    1}
+                  –
+                  {Math.min(
+                    paginaProductosActual *
+                      REGISTROS_POR_PAGINA,
+                    productosFiltrados.length
+                  )}{" "}
+                  {t("de", "of")} {productosFiltrados.length}
+                </span>
+
+                <div className={styles.paginationControls}>
+                  <button
+                    type="button"
+                    disabled={paginaProductosActual <= 1}
+                    onClick={() =>
+                      setPaginaProductos(
+                        Math.max(1, paginaProductosActual - 1)
+                      )
+                    }
+                  >
+                    {t("Anterior", "Previous")}
+                  </button>
+
+                  <strong>
+                    {paginaProductosActual} /{" "}
+                    {totalPaginasProductos}
+                  </strong>
+
+                  <button
+                    type="button"
+                    disabled={
+                      paginaProductosActual >= totalPaginasProductos
+                    }
+                    onClick={() =>
+                      setPaginaProductos(
+                        Math.min(
+                          totalPaginasProductos,
+                          paginaProductosActual + 1
+                        )
+                      )
+                    }
+                  >
+                    {t("Siguiente", "Next")}
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </section>
+            )}
+
+
+            {seccionActiva === "importacion" &&
+              puedeGestionarProductos && (
+                <section
+                  className={styles.sectionCard}
+                  style={tarjeta}
+                >
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <span className={styles.eyebrow}>
+                        {t("Carga de datos", "Data upload")}
+                      </span>
+                      <h2>
+                        {t(
+                          "Importación masiva",
+                          "Bulk import"
+                        )}
+                      </h2>
+                    </div>
+
+                    <span className={styles.formatBadge}>
+                      CSV · XLSX · JSON
+                    </span>
+                  </div>
+
+                  <div className={styles.importCard}>
+                    <h3>
+                      {t(
+                        "Importar productos",
+                        "Import products"
+                      )}
+                    </h3>
+
+                    <p>
+                      {t(
+                        "Carga múltiples productos mediante un archivo estructurado. Todos los registros se validan antes de escribir en Firestore y solo pueden asociarse a competidores de la empresa actual.",
+                        "Upload multiple products using a structured file. All records are validated before writing to Firestore and can only be linked to competitors from the current company."
+                      )}
+                    </p>
+
+                    <div className={styles.importInfoGrid}>
+                      <div>
+                        <span>
+                          {t(
+                            "Formatos admitidos",
+                            "Supported formats"
+                          )}
+                        </span>
+                        <strong>CSV, XLSX, JSON</strong>
+                      </div>
+
+                      <div>
+                        <span>
+                          {t(
+                            "Máximo por archivo",
+                            "Maximum per file"
+                          )}
+                        </span>
+                        <strong>450</strong>
+                      </div>
+
+                      <div>
+                        <span>
+                          {t(
+                            "Empresa destino",
+                            "Target company"
+                          )}
+                        </span>
+                        <strong>
+                          {esSuperadmin
+                            ? empresaSeleccionada
+                            : perfil?.empresaId}
+                        </strong>
+                      </div>
+                    </div>
+
+                    <div className={styles.requiredFields}>
+                      <span>
+                        {t(
+                          "Campos requeridos",
+                          "Required fields"
+                        )}
+                      </span>
+
+                      <code>
+                        {idioma === "es"
+                          ? "nombre, categoria, precio, competidorId, estado"
+                          : "name, category, price, competitorId, status"}
+                      </code>
+                    </div>
+
+                    <div className={styles.downloadLinks}>
+                      <a
+                        href={
+                          idioma === "es"
+                            ? "/ejemplos/productos-batch.csv"
+                            : "/ejemplos/products-batch.csv"
+                        }
+                        download
+                      >
+                        {t(
+                          "Descargar ejemplo CSV",
+                          "Download CSV example"
+                        )}
+                      </a>
+
+                      <a
+                        href="/ejemplos/productos-batch.json"
+                        download
+                      >
+                        {t(
+                          "Descargar ejemplo JSON",
+                          "Download JSON example"
+                        )}
+                      </a>
+                    </div>
+
+                    <label className={styles.filePicker}>
+                      <span>
+                        {importandoCsv
+                          ? t(
+                              "Validando y cargando...",
+                              "Validating and uploading..."
+                            )
+                          : t(
+                              "Seleccionar archivo",
+                              "Select file"
+                            )}
+                      </span>
+
+                      <input
+                        type="file"
+                        accept=".csv,.xlsx,.json,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        onChange={importarProductosArchivo}
+                        disabled={
+                          importandoCsv ||
+                          competidores.length === 0
+                        }
+                      />
+                    </label>
+
+                    {mensajeCsv && (
+                      <div className={styles.successMessage}>
+                        {mensajeCsv}
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
+
+          </div>
+        </div>
       </div>
     </main>
   );
