@@ -752,3 +752,98 @@
 .topbar p {
   font-size: 13px;
 }
+
+/* =======================================================
+   TRAZABILIDAD DE DATOS
+   ======================================================= */
+
+.sourceCell {
+  min-width: 145px;
+}
+
+.sourceBadgeWeb,
+.sourceBadgeIntegration,
+.sourceBadgeManual {
+  display: inline-block;
+  padding: 4px 8px;
+  margin-bottom: 5px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .5px;
+}
+
+.sourceBadgeWeb {
+  background: #e7f7f1;
+  color: #087a5b;
+}
+
+.sourceBadgeIntegration {
+  background: #edf2f8;
+  color: #49647d;
+}
+
+.sourceBadgeManual {
+  background: #f1f3f4;
+  color: #687278;
+}
+
+.sourceName,
+.sourceDate {
+  display: block;
+  margin-top: 2px;
+  color: #647177;
+  font-size: 11px;
+}
+
+.sourceName {
+  color: #35443f;
+  font-weight: 650;
+}
+
+.sourceLink {
+  display: inline-block;
+  margin-top: 4px;
+  color: #08735f;
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.sourceLink:hover {
+  text-decoration: underline;
+}
+
+.optionalFields {
+  margin: 18px 0;
+  padding: 13px 14px;
+  border: 1px solid #dfe8e5;
+  border-radius: 8px;
+  background: #fafcfc;
+}
+
+.optionalFields > span {
+  display: block;
+  margin-bottom: 7px;
+  color: #81908c;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+
+.optionalFields code {
+  display: inline-block;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #f0f4f3;
+  color: #40504b;
+  font-size: 11px;
+}
+
+.optionalFields p {
+  margin: 9px 0 0;
+  color: #6b7874;
+  font-size: 11px;
+  line-height: 1.5;
+}

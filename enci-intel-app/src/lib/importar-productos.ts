@@ -6,6 +6,11 @@ export type ProductoImportado = {
   precio: number | null;
   competidorId: string;
   estado: "activo" | "inactivo";
+
+  origen: "manual" | "web" | "integracion";
+  fuenteNombre: string | null;
+  fuenteUrl: string | null;
+  fechaConsulta: string | null;
 };
 
 function tr(idioma: Idioma, es: string, en: string) {
@@ -39,6 +44,21 @@ function cabeceraCanonica(valor: unknown) {
 
     estado: "estado",
     status: "estado",
+
+    origen: "origen",
+    origin: "origen",
+    source: "origen",
+
+    fuentenombre: "fuenteNombre",
+    sourcename: "fuenteNombre",
+
+    fuenteurl: "fuenteUrl",
+    sourceurl: "fuenteUrl",
+
+    fechaconsulta: "fechaConsulta",
+    consultationdate: "fechaConsulta",
+    retrievaldate: "fechaConsulta",
+    retrievedat: "fechaConsulta",
   };
 
   return aliases[clave] ?? clave;
@@ -83,6 +103,113 @@ function parsearPrecio(valor: unknown): number | null {
   return numero;
 }
 
+function normalizarOrigen(
+  valor: unknown,
+  numeroFila: number,
+  idioma: Idioma
+): "manual" | "web" | "integracion" {
+  const origen = String(valor ?? "manual")
+    .trim()
+    .toLowerCase();
+
+  const equivalencias: Record<
+    string,
+    "manual" | "web" | "integracion"
+  > = {
+    manual: "manual",
+
+    web: "web",
+    website: "web",
+
+    integracion: "integracion",
+    integration: "integracion",
+    api: "integracion",
+  };
+
+  const normalizado = equivalencias[origen];
+
+  if (!normalizado) {
+    throw new Error(
+      tr(
+        idioma,
+        `Fila ${numeroFila}: origen debe ser manual, web o integracion.`,
+        `Row ${numeroFila}: origin must be manual, web or integration.`
+      )
+    );
+  }
+
+  return normalizado;
+}
+
+function normalizarUrl(
+  valor: unknown,
+  numeroFila: number,
+  idioma: Idioma
+): string | null {
+  const texto = String(valor ?? "").trim();
+
+  if (!texto) {
+    return null;
+  }
+
+  try {
+    const url = new URL(texto);
+
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      throw new Error("PROTOCOLO_INVALIDO");
+    }
+
+    return url.toString();
+  } catch {
+    throw new Error(
+      tr(
+        idioma,
+        `Fila ${numeroFila}: fuenteUrl no es una URL web válida.`,
+        `Row ${numeroFila}: sourceUrl is not a valid web URL.`
+      )
+    );
+  }
+}
+
+function normalizarFechaConsulta(
+  valor: unknown,
+  numeroFila: number,
+  idioma: Idioma
+): string | null {
+  const texto = String(valor ?? "").trim();
+
+  if (!texto) {
+    return null;
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+    throw new Error(
+      tr(
+        idioma,
+        `Fila ${numeroFila}: fechaConsulta debe usar formato YYYY-MM-DD.`,
+        `Row ${numeroFila}: consultationDate must use YYYY-MM-DD format.`
+      )
+    );
+  }
+
+  const fecha = new Date(`${texto}T00:00:00Z`);
+
+  if (
+    Number.isNaN(fecha.getTime()) ||
+    fecha.toISOString().slice(0, 10) !== texto
+  ) {
+    throw new Error(
+      tr(
+        idioma,
+        `Fila ${numeroFila}: fechaConsulta no es una fecha válida.`,
+        `Row ${numeroFila}: consultationDate is not a valid date.`
+      )
+    );
+  }
+
+  return texto;
+}
+
 function normalizarFila(
   registro: Record<string, unknown>,
   numeroFila: number,
@@ -99,6 +226,27 @@ function normalizarFila(
   const competidorId = String(
     normalizado.competidorId ?? ""
   ).trim();
+
+  const origen = normalizarOrigen(
+    normalizado.origen,
+    numeroFila,
+    idioma
+  );
+
+  const fuenteNombre =
+    String(normalizado.fuenteNombre ?? "").trim() || null;
+
+  const fuenteUrl = normalizarUrl(
+    normalizado.fuenteUrl,
+    numeroFila,
+    idioma
+  );
+
+  const fechaConsulta = normalizarFechaConsulta(
+    normalizado.fechaConsulta,
+    numeroFila,
+    idioma
+  );
 
   let estado = String(normalizado.estado ?? "")
     .trim()
@@ -152,6 +300,16 @@ function normalizarFila(
     );
   }
 
+  if (origen === "web" && !fuenteUrl) {
+    throw new Error(
+      tr(
+        idioma,
+        `Fila ${numeroFila}: los registros de origen web deben incluir fuenteUrl.`,
+        `Row ${numeroFila}: web-origin records must include sourceUrl.`
+      )
+    );
+  }
+
   let precio: number | null;
 
   try {
@@ -172,6 +330,10 @@ function normalizarFila(
     precio,
     competidorId,
     estado: estado as "activo" | "inactivo",
+    origen,
+    fuenteNombre,
+    fuenteUrl,
+    fechaConsulta,
   };
 }
 

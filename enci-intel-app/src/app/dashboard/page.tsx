@@ -50,6 +50,11 @@ type Producto = {
   competidorId: string;
   precio?: number | null;
   estado?: string;
+
+  origen?: "manual" | "web" | "integracion";
+  fuenteNombre?: string | null;
+  fuenteUrl?: string | null;
+  fechaConsulta?: string | null;
 };
 
 // Carga competidores y productos de UNA empresa.
@@ -88,6 +93,11 @@ async function obtenerDatosEmpresa(empresaId: string) {
         competidorId: documento.data().competidorId,
         precio: documento.data().precio ?? null,
         estado: documento.data().estado,
+
+        origen: documento.data().origen ?? "manual",
+        fuenteNombre: documento.data().fuenteNombre ?? null,
+        fuenteUrl: documento.data().fuenteUrl ?? null,
+        fechaConsulta: documento.data().fechaConsulta ?? null,
       })) as Producto[];
     })
   );
@@ -437,6 +447,12 @@ export default function DashboardPage() {
         precio,
         competidorId,
         estado: "activo",
+
+        origen: "manual",
+        fuenteNombre: null,
+        fuenteUrl: null,
+        fechaConsulta: null,
+
         creado_en: serverTimestamp(),
       });
 
@@ -1147,6 +1163,12 @@ export default function DashboardPage() {
           precio: fila.precio,
           competidorId: fila.competidorId,
           estado: fila.estado,
+
+          origen: fila.origen,
+          fuenteNombre: fila.fuenteNombre,
+          fuenteUrl: fila.fuenteUrl,
+          fechaConsulta: fila.fechaConsulta,
+
           creado_en: serverTimestamp(),
         });
       });
@@ -1241,7 +1263,10 @@ export default function DashboardPage() {
       !textoProducto ||
       producto.nombre.toLowerCase().includes(textoProducto) ||
       (producto.categoria ?? "").toLowerCase().includes(textoProducto) ||
-      nombreCompetidor.toLowerCase().includes(textoProducto);
+      nombreCompetidor.toLowerCase().includes(textoProducto) ||
+      (producto.fuenteNombre ?? "")
+        .toLowerCase()
+        .includes(textoProducto);
 
     const coincideEstado =
       filtroEstadoProducto === "todos" ||
@@ -2186,6 +2211,7 @@ export default function DashboardPage() {
                       <th>{t("Precio", "Price")}</th>
                       <th>{t("Competidor", "Competitor")}</th>
                       <th>{t("Estado", "Status")}</th>
+                      <th>{t("Fuente", "Source")}</th>
                       {puedeGestionarProductos && (
                         <th>{t("Acciones", "Actions")}</th>
                       )}
@@ -2198,7 +2224,7 @@ export default function DashboardPage() {
                         <tr key={producto.id}>
                           <td
                             colSpan={
-                              puedeGestionarProductos ? 6 : 5
+                              puedeGestionarProductos ? 7 : 6
                             }
                           >
                             <form
@@ -2337,6 +2363,47 @@ export default function DashboardPage() {
                                 ? t("Inactivo", "Inactive")
                                 : t("Sin definir", "Not defined")}
                             </span>
+                          </td>
+
+                          <td className={styles.sourceCell}>
+                            <span
+                              className={
+                                producto.origen === "web"
+                                  ? styles.sourceBadgeWeb
+                                  : producto.origen === "integracion"
+                                  ? styles.sourceBadgeIntegration
+                                  : styles.sourceBadgeManual
+                              }
+                            >
+                              {producto.origen === "web"
+                                ? "WEB"
+                                : producto.origen === "integracion"
+                                ? t("INTEGRACIÓN", "INTEGRATION")
+                                : t("MANUAL", "MANUAL")}
+                            </span>
+
+                            {producto.fuenteNombre && (
+                              <span className={styles.sourceName}>
+                                {producto.fuenteNombre}
+                              </span>
+                            )}
+
+                            {producto.fechaConsulta && (
+                              <span className={styles.sourceDate}>
+                                {producto.fechaConsulta}
+                              </span>
+                            )}
+
+                            {producto.fuenteUrl && (
+                              <a
+                                className={styles.sourceLink}
+                                href={producto.fuenteUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {t("Ver fuente", "View source")}
+                              </a>
+                            )}
                           </td>
 
                           {puedeGestionarProductos && (
@@ -2525,6 +2592,28 @@ export default function DashboardPage() {
                           ? "nombre, categoria, precio, competidorId, estado"
                           : "name, category, price, competitorId, status"}
                       </code>
+                    </div>
+
+                    <div className={styles.optionalFields}>
+                      <span>
+                        {t(
+                          "Campos de trazabilidad opcionales",
+                          "Optional traceability fields"
+                        )}
+                      </span>
+
+                      <code>
+                        {idioma === "es"
+                          ? "origen, fuenteNombre, fuenteUrl, fechaConsulta"
+                          : "origin, sourceName, sourceUrl, consultationDate"}
+                      </code>
+
+                      <p>
+                        {t(
+                          "Si origen es web, fuenteUrl es obligatoria. fechaConsulta debe usar formato YYYY-MM-DD.",
+                          "If origin is web, sourceUrl is required. consultationDate must use YYYY-MM-DD format."
+                        )}
+                      </p>
                     </div>
 
                     <div className={styles.downloadLinks}>
