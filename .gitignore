@@ -1,2 +1,5 @@
 .vercel
 .env*
+
+**/PF-09_lighthouse.report.html
+**/PF-09_lighthouse.report.json
