@@ -1,0 +1,18 @@
+{
+  "productos": [
+    {
+      "nombre": "Producto XLSX válido 1",
+      "categoria": "Salud animal",
+      "precio": 19990,
+      "competidorId": "COMPETIDOR_ID",
+      "estado": "activo"
+    },
+    {
+      "nombre": "Producto XLSX sin precio",
+      "categoria": "Nutrición",
+      "precio": "",
+      "competidorId": "COMPETIDOR_ID",
+      "estado": "inactive"
+    }
+  ]
+}

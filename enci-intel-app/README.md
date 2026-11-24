@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# enci-intel-app
 
-## Getting Started
+Aplicación web del módulo de **infraestructura base multitenant de Enci-Intel** (Grupo 9). Para contexto, alcance, arquitectura, resultados y demo recomendada, ver el [README principal](../README.md).
 
-First, run the development server:
+## Inicio rápido
 
-```bash
+```powershell
+npm ci
+Copy-Item .env.example .env.local
+# completar NEXT_PUBLIC_FIREBASE_*
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abrir `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Módulos
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```text
+src/app/login/page.tsx         Login, idioma y contexto de la solución
+src/app/dashboard/page.tsx     Resumen, competidores, productos e importación
+src/lib/firebase.ts            Inicialización Firebase
+src/lib/i18n.tsx               ES/EN persistido
+src/lib/importar-productos.ts  Parser y validación CSV/XLSX/JSON
+firebase/firestore.rules       Autorización multitenant
+firebase/test-rules.mjs        Suite de seguridad
+```
 
-## Learn More
+## Importación
 
-To learn more about Next.js, take a look at the following resources:
+- CSV, XLSX y JSON;
+- máximo 450 productos;
+- validación completa antes de escribir;
+- batch atómico;
+- cada `competidorId` se valida contra la empresa actual;
+- la interfaz muestra el ID de competidor válido para el tenant;
+- si el tenant aún no tiene competidores, la carga se bloquea con una explicación y acceso a la sección Competidores;
+- CSV/JSON pueden descargarse desde la interfaz con el ID correcto; para XLSX se copia ese mismo ID a la columna `competidorId`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Pruebas
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```powershell
+npm test
+npm run test:rules
+npm run lint
+npm run build
+npm run test:rendimiento -- https://capstone-inteligencia-de-mercado-gr.vercel.app 200 20
+```
 
-## Deploy on Vercel
+Resultados finales registrados en `../Documentación técnica/Evidencias Pruebas Finales/`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Docker
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```powershell
+docker compose --env-file .env.local up --build -d
+docker ps
+curl.exe -I http://localhost:3000
+docker compose down
+```
+
+Firebase no corre dentro del contenedor; Authentication y Firestore permanecen como servicios administrados externos.

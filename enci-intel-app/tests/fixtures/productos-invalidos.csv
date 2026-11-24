@@ -1,0 +1,3 @@
+nombre,categoria,precio,competidorId,estado,origen,fuenteNombre,fuenteUrl,fechaConsulta
+,Salud animal,1000,COMPETIDOR_ID,activo,,,,
+Precio negativo,Salud animal,-5,COMPETIDOR_ID,activo,,,,

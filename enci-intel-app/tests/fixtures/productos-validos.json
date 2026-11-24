@@ -1,0 +1,34 @@
+[
+  {
+    "nombre": "Producto XLSX válido 1",
+    "categoria": "Salud animal",
+    "precio": 19990,
+    "competidorId": "COMPETIDOR_ID",
+    "estado": "activo"
+  },
+  {
+    "nombre": "Producto XLSX sin precio",
+    "categoria": "Nutrición",
+    "precio": "",
+    "competidorId": "COMPETIDOR_ID",
+    "estado": "inactive"
+  },
+  {
+    "nombre": "Producto XLSX precio chileno",
+    "categoria": "Bioseguridad",
+    "precio": "12.990",
+    "competidorId": "COMPETIDOR_ID",
+    "estado": "activo",
+    "origen": "web",
+    "fuenteNombre": "Sitio oficial",
+    "fuenteUrl": "https://www.ejemplo.cl/producto",
+    "fechaConsulta": "2026-10-15"
+  },
+  {
+    "nombre": "Ñandú vitamínico ácido",
+    "categoria": "Nutrición",
+    "precio": 4500,
+    "competidorId": "COMPETIDOR_ID",
+    "estado": "activo"
+  }
+]
