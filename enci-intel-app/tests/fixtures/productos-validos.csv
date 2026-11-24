@@ -1,0 +1,5 @@
+nombre,categoria,precio,competidorId,estado,origen,fuenteNombre,fuenteUrl,fechaConsulta
+Producto CSV válido 1,Salud animal,19990,COMPETIDOR_ID,activo,,,,
+Producto CSV sin precio,Nutrición,,COMPETIDOR_ID,inactive,,,,
+Producto CSV precio chileno,Bioseguridad,12.990,COMPETIDOR_ID,activo,web,Sitio oficial,https://www.ejemplo.cl/producto,2026-10-15
+Ñandú vitamínico ácido,Nutrición,4500,COMPETIDOR_ID,activo,,,,

@@ -23,6 +23,53 @@ import {
 import { parsearArchivoProductos } from "@/lib/importar-productos";
 import styles from "./dashboard.module.css";
 
+function DashboardSkeleton() {
+  return (
+    <main className={styles.loadingScreen} aria-label="Cargando Enci-Intel">
+      <div className={styles.loadingShell}>
+        <div className={`${styles.skeleton} ${styles.skeletonTopbar}`} />
+
+        <div className={styles.loadingWorkspace}>
+          <div className={`${styles.skeleton} ${styles.skeletonSidebar}`} />
+
+          <div className={styles.loadingMain}>
+            <div className={styles.loadingCards}>
+              {[0, 1, 2, 3].map((item) => (
+                <div
+                  key={item}
+                  className={`${styles.skeleton} ${styles.skeletonMetric}`}
+                />
+              ))}
+            </div>
+
+            <div className={styles.loadingPanels}>
+              <div className={`${styles.skeleton} ${styles.skeletonPanel}`} />
+              <div className={`${styles.skeleton} ${styles.skeletonPanel}`} />
+            </div>
+
+            <div className={`${styles.skeleton} ${styles.skeletonSession}`} />
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function TableSkeleton() {
+  return (
+    <div className={styles.tableSkeleton} aria-hidden="true">
+      {[0, 1, 2, 3].map((item) => (
+        <div className={styles.tableSkeletonRow} key={item}>
+          <span className={styles.skeleton} />
+          <span className={styles.skeleton} />
+          <span className={styles.skeleton} />
+          <span className={styles.skeleton} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 type Perfil = {
   email?: string;
   empresaId?: string | null;
@@ -182,6 +229,7 @@ export default function DashboardPage() {
 
   const [importandoCsv, setImportandoCsv] = useState(false);
   const [mensajeCsv, setMensajeCsv] = useState("");
+  const [competidorPlantillaId, setCompetidorPlantillaId] = useState("");
 
   const [seccionActiva, setSeccionActiva] = useState<
     "resumen" | "competidores" | "productos" | "importacion"
@@ -297,6 +345,26 @@ export default function DashboardPage() {
 
     return () => unsubscribe();
   }, [router]);
+
+  useEffect(() => {
+    if (competidores.length === 0) {
+      if (competidorPlantillaId) {
+        setCompetidorPlantillaId("");
+      }
+      return;
+    }
+
+    const sigueDisponible = competidores.some(
+      (competidor) => competidor.id === competidorPlantillaId
+    );
+
+    if (!sigueDisponible) {
+      const preferido =
+        competidores.find((competidor) => competidor.estado !== "inactivo") ??
+        competidores[0];
+      setCompetidorPlantillaId(preferido.id);
+    }
+  }, [competidores, competidorPlantillaId]);
 
   async function cambiarEmpresa(empresaId: string) {
     setEmpresaSeleccionada(empresaId);
@@ -1173,6 +1241,113 @@ export default function DashboardPage() {
     }
   }
 
+  function descargarTexto(
+    nombreArchivo: string,
+    contenido: string,
+    tipo: string
+  ) {
+    const blob = new Blob([contenido], { type: tipo });
+    const url = URL.createObjectURL(blob);
+    const enlace = document.createElement("a");
+    enlace.href = url;
+    enlace.download = nombreArchivo;
+    document.body.appendChild(enlace);
+    enlace.click();
+    enlace.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function descargarPlantillaCsv() {
+    const competidor = competidores.find(
+      (item) => item.id === competidorPlantillaId
+    );
+
+    if (!competidor) {
+      setError(
+        t(
+          "Selecciona un competidor antes de descargar la plantilla.",
+          "Select a competitor before downloading the template."
+        )
+      );
+      return;
+    }
+
+    const cabecera =
+      idioma === "es"
+        ? "nombre,categoria,precio,competidorId,estado,origen,fuenteNombre,fuenteUrl,fechaConsulta"
+        : "name,category,price,competitorId,status,origin,sourceName,sourceUrl,consultationDate";
+
+    const fila =
+      idioma === "es"
+        ? `Producto de ejemplo,Salud animal,15990,${competidor.id},activo,manual,,,`
+        : `Sample product,Animal health,15990,${competidor.id},active,manual,,,`;
+
+    descargarTexto(
+      idioma === "es" ? "productos-plantilla.csv" : "products-template.csv",
+      `\uFEFF${cabecera}\n${fila}\n`,
+      "text/csv;charset=utf-8"
+    );
+  }
+
+  function descargarPlantillaJson() {
+    const competidor = competidores.find(
+      (item) => item.id === competidorPlantillaId
+    );
+
+    if (!competidor) {
+      setError(
+        t(
+          "Selecciona un competidor antes de descargar la plantilla.",
+          "Select a competitor before downloading the template."
+        )
+      );
+      return;
+    }
+
+    const contenido = [
+      {
+        nombre: idioma === "es" ? "Producto de ejemplo" : "Sample product",
+        categoria: idioma === "es" ? "Salud animal" : "Animal health",
+        precio: 15990,
+        competidorId: competidor.id,
+        estado: idioma === "es" ? "activo" : "active",
+        origen: "manual",
+        fuenteNombre: null,
+        fuenteUrl: null,
+        fechaConsulta: null,
+      },
+    ];
+
+    descargarTexto(
+      idioma === "es" ? "productos-plantilla.json" : "products-template.json",
+      JSON.stringify(contenido, null, 2),
+      "application/json;charset=utf-8"
+    );
+  }
+
+  async function copiarCompetidorId() {
+    if (!competidorPlantillaId) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(competidorPlantillaId);
+      setMensajeCsv(
+        t(
+          "ID del competidor copiado. Puedes pegarlo en la columna competidorId de tu Excel.",
+          "Competitor ID copied. You can paste it into the competitorId column of your Excel file."
+        )
+      );
+    } catch {
+      setMensajeCsv(
+        t(
+          `ID del competidor: ${competidorPlantillaId}`,
+          `Competitor ID: ${competidorPlantillaId}`
+        )
+      );
+    }
+  }
+
   async function importarProductosArchivo(
     evento: ChangeEvent<HTMLInputElement>
   ) {
@@ -1234,7 +1409,10 @@ export default function DashboardPage() {
 
       if (filas.length > 450) {
         throw new Error(
-          "El MVP admite un máximo de 450 productos por archivo CSV."
+          t(
+            "El MVP admite un máximo de 450 productos por archivo.",
+            "The MVP supports a maximum of 450 products per file."
+          )
         );
       }
 
@@ -1313,8 +1491,14 @@ export default function DashboardPage() {
 
       setError(
         err instanceof Error
-          ? `No se pudo importar el CSV: ${err.message}`
-          : "No se pudo importar el archivo CSV."
+          ? t(
+              `No se pudo importar el archivo: ${err.message}`,
+              `The file could not be imported: ${err.message}`
+            )
+          : t(
+              "No se pudo importar el archivo.",
+              "The file could not be imported."
+            )
       );
     } finally {
       setImportandoCsv(false);
@@ -1328,11 +1512,7 @@ export default function DashboardPage() {
   }
 
   if (cargando) {
-    return (
-      <main style={{ padding: "40px", fontFamily: "Arial, sans-serif" }}>
-        Cargando Enci-Intel...
-      </main>
-    );
+    return <DashboardSkeleton />;
   }
 
   const competidoresWeb = competidores.filter(
@@ -1534,14 +1714,9 @@ export default function DashboardPage() {
             />
 
             <button
+              type="button"
               onClick={cerrarSesion}
-              style={{
-                padding: "10px 18px",
-                borderRadius: "8px",
-                border: "1px solid #ccc",
-                background: "#fff",
-                cursor: "pointer",
-              }}
+              className={styles.logoutButton}
             >
               {t("Cerrar sesión", "Sign out")}
             </button>
@@ -1648,7 +1823,7 @@ export default function DashboardPage() {
         <section className={styles.metricsGrid}>
           <article className={styles.metricCard}>
             <div className={styles.metricLabel}>
-              {t("Empresas monitoreadas", "Monitored companies")}
+              {t("Competidores monitoreados", "Monitored competitors")}
             </div>
 
             <div className={styles.metricValue}>
@@ -1657,7 +1832,7 @@ export default function DashboardPage() {
 
             <div className={styles.metricSubtext}>
               {t(
-                `${competidoresWeb} obtenidas desde fuentes web`,
+                `${competidoresWeb} obtenidos desde fuentes web`,
                 `${competidoresWeb} obtained from web sources`
               )}
             </div>
@@ -1766,8 +1941,8 @@ export default function DashboardPage() {
                 <strong>{competidoresWeb}</strong>
                 <span>
                   {t(
-                    "empresas desde web",
-                    "companies from web"
+                    "competidores desde web",
+                    "competitors from web"
                   )}
                 </span>
               </div>
@@ -1828,8 +2003,8 @@ export default function DashboardPage() {
 
                 <h2>
                   {t(
-                    "Empresas monitoreadas",
-                    "Monitored companies"
+                    "Competidores monitoreados",
+                    "Monitored competitors"
                   )}
                 </h2>
               </div>
@@ -1842,8 +2017,8 @@ export default function DashboardPage() {
             {competidores.length === 0 ? (
               <p className={styles.emptyState}>
                 {t(
-                  "No existen empresas monitoreadas.",
-                  "There are no monitored companies."
+                  "No existen competidores monitoreados.",
+                  "There are no monitored competitors."
                 )}
               </p>
             ) : (
@@ -2274,9 +2449,7 @@ export default function DashboardPage() {
           </div>
 
           {cargandoDatos ? (
-            <p className={styles.emptyState}>
-              {t("Cargando...", "Loading...")}
-            </p>
+            <TableSkeleton />
           ) : competidoresFiltrados.length === 0 ? (
             <p className={styles.emptyState}>
               {t(
@@ -2818,9 +2991,7 @@ export default function DashboardPage() {
           </div>
 
           {cargandoDatos ? (
-            <p className={styles.emptyState}>
-              {t("Cargando...", "Loading...")}
-            </p>
+            <TableSkeleton />
           ) : productosFiltrados.length === 0 ? (
             <p className={styles.emptyState}>
               {t(
@@ -3288,55 +3459,128 @@ export default function DashboardPage() {
                       </p>
                     </div>
 
-                    <div className={styles.downloadLinks}>
-                      <a
-                        href={
-                          idioma === "es"
-                            ? "/ejemplos/productos-batch.csv"
-                            : "/ejemplos/products-batch.csv"
-                        }
-                        download
-                      >
-                        {t(
-                          "Descargar ejemplo CSV",
-                          "Download CSV example"
-                        )}
-                      </a>
+                    {competidores.length === 0 ? (
+                      <div className={styles.importBlocked}>
+                        <strong>
+                          {t(
+                            "Esta empresa todavía no tiene competidores.",
+                            "This company does not have competitors yet."
+                          )}
+                        </strong>
+                        <p>
+                          {t(
+                            "La importación necesita asociar cada producto a un competidor del tenant actual. Crea primero un competidor y luego vuelve a esta sección.",
+                            "The import must associate every product with a competitor from the current tenant. Create a competitor first and then return to this section."
+                          )}
+                        </p>
+                        <button
+                          type="button"
+                          className={styles.secondaryButton}
+                          onClick={() => setSeccionActiva("competidores")}
+                        >
+                          {t(
+                            "Ir a Competidores",
+                            "Go to Competitors"
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className={styles.tenantTemplate}>
+                          <div>
+                            <span>
+                              {t(
+                                "Competidor para la plantilla",
+                                "Competitor for the template"
+                              )}
+                            </span>
+                            <select
+                              value={competidorPlantillaId}
+                              onChange={(evento) =>
+                                setCompetidorPlantillaId(evento.target.value)
+                              }
+                            >
+                              {competidores.map((competidor) => (
+                                <option
+                                  key={competidor.id}
+                                  value={competidor.id}
+                                >
+                                  {competidor.nombre}
+                                  {competidor.estado === "inactivo"
+                                    ? t(" (inactivo)", " (inactive)")
+                                    : ""}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
 
-                      <a
-                        href="/ejemplos/productos-batch.json"
-                        download
-                      >
-                        {t(
-                          "Descargar ejemplo JSON",
-                          "Download JSON example"
-                        )}
-                      </a>
-                    </div>
+                          <div className={styles.competitorIdBox}>
+                            <span>competidorId</span>
+                            <code>{competidorPlantillaId}</code>
+                            <button
+                              type="button"
+                              onClick={copiarCompetidorId}
+                            >
+                              {t("Copiar ID", "Copy ID")}
+                            </button>
+                          </div>
+                        </div>
 
-                    <label className={styles.filePicker}>
-                      <span>
-                        {importandoCsv
-                          ? t(
-                              "Validando y cargando...",
-                              "Validating and uploading..."
-                            )
-                          : t(
-                              "Seleccionar archivo",
-                              "Select file"
+                        <p className={styles.xlsxHint}>
+                          {t(
+                            "Para un archivo XLSX, usa este mismo ID en la columna competidorId. Así la carga funciona tanto en Empresa A como en Empresa B sin mezclar tenants.",
+                            "For an XLSX file, use this same ID in the competitorId column. This keeps imports working for Company A or Company B without mixing tenants."
+                          )}
+                        </p>
+
+                        <div className={styles.downloadLinks}>
+                          <button
+                            type="button"
+                            onClick={descargarPlantillaCsv}
+                          >
+                            {t(
+                              "Descargar plantilla CSV",
+                              "Download CSV template"
                             )}
-                      </span>
+                          </button>
 
-                      <input
-                        type="file"
-                        accept=".csv,.xlsx,.json,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        onChange={importarProductosArchivo}
-                        disabled={
-                          importandoCsv ||
-                          competidores.length === 0
-                        }
-                      />
-                    </label>
+                          <button
+                            type="button"
+                            onClick={descargarPlantillaJson}
+                          >
+                            {t(
+                              "Descargar plantilla JSON",
+                              "Download JSON template"
+                            )}
+                          </button>
+                        </div>
+
+                        <label
+                          className={`${styles.filePicker} ${
+                            importandoCsv ? styles.filePickerDisabled : ""
+                          }`}
+                        >
+                          <span>
+                            {importandoCsv
+                              ? t(
+                                  "Validando y cargando...",
+                                  "Validating and uploading..."
+                                )
+                              : t(
+                                  "Seleccionar CSV, XLSX o JSON",
+                                  "Select CSV, XLSX or JSON"
+                                )}
+                          </span>
+
+                          <input
+                            type="file"
+                            accept=".csv,.xlsx,.json,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            onChange={importarProductosArchivo}
+                            disabled={importandoCsv}
+                          />
+                        </label>
+                      </>
+                    )}
 
                     {mensajeCsv && (
                       <div className={styles.successMessage}>

@@ -1,0 +1,33 @@
+# Levanta Enci-Intel en un contenedor.
+# Requiere un archivo .env (o .env.local) junto a este archivo con las 6
+# variables NEXT_PUBLIC_FIREBASE_* (ver .env.example). Firebase es un
+# servicio externo: no se ejecuta dentro del contenedor.
+#
+# Uso:
+#   docker compose --env-file .env.local up --build
+#   Abrir http://localhost:3000
+services:
+  enci-intel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Next.js incrusta las variables NEXT_PUBLIC_* en el código del navegador
+      # durante el build, por eso se pasan como argumentos de construcción.
+      args:
+        NEXT_PUBLIC_FIREBASE_API_KEY: ${NEXT_PUBLIC_FIREBASE_API_KEY:?Falta NEXT_PUBLIC_FIREBASE_API_KEY}
+        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:?Falta NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}
+        NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${NEXT_PUBLIC_FIREBASE_PROJECT_ID:?Falta NEXT_PUBLIC_FIREBASE_PROJECT_ID}
+        NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:?Falta NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}
+        NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:?Falta NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}
+        NEXT_PUBLIC_FIREBASE_APP_ID: ${NEXT_PUBLIC_FIREBASE_APP_ID:?Falta NEXT_PUBLIC_FIREBASE_APP_ID}
+    image: enci-intel-app:latest
+    container_name: enci-intel
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/login"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

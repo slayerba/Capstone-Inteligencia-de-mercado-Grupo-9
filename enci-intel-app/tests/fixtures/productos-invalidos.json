@@ -1,0 +1,9 @@
+[
+  {
+    "nombre": "Precio negativo",
+    "categoria": "X",
+    "precio": -5,
+    "competidorId": "COMPETIDOR_ID",
+    "estado": "activo"
+  }
+]

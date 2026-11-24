@@ -1069,3 +1069,303 @@
   color: #7b8589;
   font-size: 12px;
 }
+
+/* =======================================================
+   CIERRE FINAL — IMPORTACIÓN MULTITENANT / DEMO
+   ======================================================= */
+
+.importBlocked {
+  margin: 18px 0;
+  padding: 16px;
+  border: 1px solid #eadfbf;
+  border-radius: 10px;
+  background: #fffaf0;
+  color: #594b28;
+}
+
+.importBlocked strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #4f421f;
+  font-size: 13px;
+}
+
+.importBlocked p {
+  margin: 0 0 13px;
+  color: #75663f;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.tenantTemplate {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(260px, 1.25fr);
+  gap: 12px;
+  margin: 20px 0 10px;
+}
+
+.tenantTemplate > div {
+  padding: 13px 14px;
+  border: 1px solid #dfe6e5;
+  border-radius: 9px;
+  background: #fafcfc;
+}
+
+.tenantTemplate span {
+  display: block;
+  margin-bottom: 7px;
+  color: #81908c;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+
+.tenantTemplate select {
+  width: 100%;
+  min-height: 39px;
+  padding: 0 9px;
+  border: 1px solid #d4ddda;
+  border-radius: 7px;
+  background: #fff;
+  color: #26332f;
+  outline: none;
+}
+
+.tenantTemplate select:focus {
+  border-color: #159a80;
+  box-shadow: 0 0 0 3px rgba(21,154,128,.10);
+}
+
+.competitorIdBox {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: 10px;
+}
+
+.competitorIdBox span {
+  grid-column: 1 / -1;
+}
+
+.competitorIdBox code {
+  min-width: 0;
+  overflow: hidden;
+  padding: 9px 10px;
+  border-radius: 6px;
+  background: #edf3f1;
+  color: #2f433e;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.competitorIdBox button,
+.downloadLinks button {
+  min-height: 36px;
+  border: 1px solid #cddbd7;
+  border-radius: 7px;
+  background: #fff;
+  color: #08735f;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.competitorIdBox button {
+  padding: 0 10px;
+}
+
+.competitorIdBox button:hover,
+.downloadLinks button:hover {
+  border-color: #159a80;
+  background: #f3fbf8;
+}
+
+.xlsxHint {
+  margin: 8px 0 14px !important;
+  color: #6f7d79 !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+}
+
+.downloadLinks button {
+  padding: 0 13px;
+}
+
+.filePickerDisabled {
+  opacity: .65;
+  cursor: wait;
+}
+
+@media (max-width: 700px) {
+  .tenantTemplate {
+    grid-template-columns: 1fr;
+  }
+
+  .downloadLinks button {
+    width: 100%;
+  }
+}
+
+/* =======================================================
+   SKELETON LOADERS - CIERRE FINAL
+   ======================================================= */
+
+.logoutButton {
+  min-width: 118px;
+  padding: 10px 16px;
+  border: 1px solid #d5ddda !important;
+  border-radius: 9px !important;
+  background: #ffffff !important;
+  color: #17211f !important;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.logoutButton:hover {
+  background: #edf8f4 !important;
+  border-color: #75bfae !important;
+  transform: translateY(-1px);
+}
+
+.logoutButton:focus-visible {
+  outline: 3px solid rgba(21, 154, 128, 0.28);
+  outline-offset: 2px;
+}
+
+.loadingScreen {
+  min-height: 100vh;
+  padding: 28px;
+  background: #f6f8fa;
+}
+
+.loadingShell {
+  max-width: 1380px;
+  margin: 0 auto;
+}
+
+.loadingWorkspace {
+  display: grid;
+  grid-template-columns: 215px minmax(0, 1fr);
+  gap: 22px;
+  margin-top: 22px;
+}
+
+.loadingMain {
+  min-width: 0;
+}
+
+.loadingCards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.loadingPanels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.skeleton {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  background: #e5ebe9;
+  border-radius: 12px;
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.72),
+    transparent
+  );
+  animation: skeletonShimmer 1.35s infinite;
+}
+
+.skeletonTopbar {
+  height: 70px;
+  background: #dce5e2;
+}
+
+.skeletonSidebar {
+  height: 430px;
+}
+
+.skeletonMetric {
+  height: 98px;
+}
+
+.skeletonPanel {
+  height: 310px;
+}
+
+.skeletonSession {
+  height: 92px;
+  margin-top: 18px;
+}
+
+.tableSkeleton {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #e1e7e5;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.tableSkeletonRow {
+  display: grid;
+  grid-template-columns: 1.7fr 1fr 0.8fr 1fr;
+  gap: 16px;
+  min-height: 46px;
+  align-items: center;
+}
+
+.tableSkeletonRow > span {
+  height: 16px;
+  border-radius: 6px;
+}
+
+@keyframes skeletonShimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (max-width: 900px) {
+  .loadingWorkspace {
+    grid-template-columns: 1fr;
+  }
+
+  .skeletonSidebar {
+    display: none;
+  }
+
+  .loadingCards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .loadingPanels {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+  }
+}

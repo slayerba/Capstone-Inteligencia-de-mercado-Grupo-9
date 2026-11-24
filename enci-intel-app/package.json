@@ -6,7 +6,11 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:rules": "cd firebase && npx -y firebase-tools emulators:exec --only firestore --project enci-intel-test \"node test-rules.mjs\"",
+    "test:rendimiento": "node tests/rendimiento.mjs",
+    "test:fixtures": "node tests/generar-fixtures.mjs"
   },
   "dependencies": {
     "firebase": "^12.19.0",
@@ -23,6 +27,8 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.25",
-    "typescript": "^5"
+    "exceljs": "^4.4.0",
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   }
 }

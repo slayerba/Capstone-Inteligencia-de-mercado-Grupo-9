@@ -108,9 +108,11 @@ function normalizarOrigen(
   numeroFila: number,
   idioma: Idioma
 ): "manual" | "web" | "integracion" {
-  const origen = String(valor ?? "manual")
-    .trim()
-    .toLowerCase();
+  // Celda vacía o columna ausente = origen manual (compatibilidad con archivos antiguos).
+  const origen =
+    String(valor ?? "")
+      .trim()
+      .toLowerCase() || "manual";
 
   const equivalencias: Record<
     string,
@@ -176,6 +178,11 @@ function normalizarFechaConsulta(
   numeroFila: number,
   idioma: Idioma
 ): string | null {
+  // Excel entrega las celdas con formato fecha como objetos Date.
+  if (valor instanceof Date && !Number.isNaN(valor.getTime())) {
+    return valor.toISOString().slice(0, 10);
+  }
+
   const texto = String(valor ?? "").trim();
 
   if (!texto) {

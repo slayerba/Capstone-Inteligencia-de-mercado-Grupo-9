@@ -16,3 +16,6 @@ README.md
 firebase
 scripts
 datos-prueba.mjs
+tests
+vitest.config.mts
+coverage
