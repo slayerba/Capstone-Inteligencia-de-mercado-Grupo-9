@@ -1,4 +1,5 @@
-﻿PF-09 Lighthouse — 23-11-2026
+PF-09 — Lighthouse CLI (Chrome)
+Fecha: 23-11-2026
 URL: https://capstone-inteligencia-de-mercado-gr.vercel.app
 
 Performance: 92
@@ -6,4 +7,4 @@ Accessibility: 95
 Best Practices: 100
 SEO: 100
 
-Resultado: APROBADO
+Resultado: APROBADO como auditoría Lighthouse reproducible.
